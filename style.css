@@ -2,16 +2,33 @@
 /* 한국어는 단어 중간에서 줄바꿈하지 않는다 (링크처럼 긴 글자는 예외로 끊는다) */
 [data-testid="stApp"] { background-color: #fafafa; }
 [data-testid="stApp"] *:not(code):not(pre) { word-break: keep-all; overflow-wrap: anywhere; }  /* Streamlit이 요소마다 break-word를 지정해 상속으로는 안 먹는다 */
-[data-testid="stMain"] {  /* 스크롤되는 영역에 붙여 제목 뒤에만 남게 한다 */
-  background-attachment: local;
-  background-image:
-    radial-gradient(ellipse 45% 100% at 12% 0%, rgba(0, 124, 240, .20), transparent 70%),
-    radial-gradient(ellipse 40% 100% at 38% 0%, rgba(0, 223, 216, .14), transparent 70%),
-    radial-gradient(ellipse 40% 100% at 62% 0%, rgba(121, 40, 202, .15), transparent 70%),
-    radial-gradient(ellipse 45% 100% at 88% 0%, rgba(249, 203, 40, .20), transparent 70%);
-  background-repeat: no-repeat;
-  background-size: 100% 300px;
+/* 맨 위 장식 두 겹: 천천히 흐르는 그라데이션 + 아래로 사라지는 평면도 격자. 내용과 같이 스크롤된다 */
+[data-testid="stMain"] { position: relative; }
+[data-testid="stMain"]::before, [data-testid="stMain"]::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 340px;
+  pointer-events: none; z-index: 0;
 }
+[data-testid="stMain"]::before {
+  background:
+    radial-gradient(ellipse 30% 90% at 12% 0%, rgba(0, 124, 240, .18), transparent 70%),
+    radial-gradient(ellipse 28% 90% at 38% 0%, rgba(0, 223, 216, .13), transparent 70%),
+    radial-gradient(ellipse 28% 90% at 62% 0%, rgba(121, 40, 202, .14), transparent 70%),
+    radial-gradient(ellipse 30% 90% at 88% 0%, rgba(249, 203, 40, .18), transparent 70%);
+  background-size: 140% 100%;
+  animation: mesh-drift 18s ease-in-out infinite alternate;
+}
+[data-testid="stMain"]::after {
+  background-image:
+    linear-gradient(#e4e4e4 1px, transparent 1px),
+    linear-gradient(90deg, #e4e4e4 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: center top;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
+}
+[data-testid="stMainBlockContainer"] { position: relative; z-index: 1; }
+@keyframes mesh-drift { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+@media (prefers-reduced-motion: reduce) { [data-testid="stMain"]::before { animation: none; } }
 [data-testid="stHeader"] { background: transparent; }
 [data-testid="stMainBlockContainer"] { max-width: 760px; }
 
