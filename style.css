@@ -1,36 +1,36 @@
-/* 배경: 서울 빌라 적벽돌. 글은 흰 패널 위에만 올려 가독성을 지킨다 */
-[data-testid="stApp"] {
-  background-color: #9E523C;
+/* Vercel(Geist) 방식: 장식은 맨 위 그라데이션 하나뿐, 나머지는 먹색과 얇은 테두리 */
+/* 한국어는 단어 중간에서 줄바꿈하지 않는다 (링크처럼 긴 글자는 예외로 끊는다) */
+[data-testid="stApp"] { background-color: #fafafa; }
+[data-testid="stApp"] *:not(code):not(pre) { word-break: keep-all; overflow-wrap: anywhere; }  /* Streamlit이 요소마다 break-word를 지정해 상속으로는 안 먹는다 */
+[data-testid="stMain"] {  /* 스크롤되는 영역에 붙여 제목 뒤에만 남게 한다 */
+  background-attachment: local;
   background-image:
-    linear-gradient(rgba(60, 30, 20, .18), rgba(60, 30, 20, .18)),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='48'%3E%3Crect width='72' height='48' fill='%23A6573F'/%3E%3Crect x='36' y='24' width='36' height='24' fill='%23994E38'/%3E%3Cpath d='M0 23h72M0 47h72M71 0v24M35 24v24' stroke='%23C9B8AA' stroke-width='2'/%3E%3C/svg%3E");
+    radial-gradient(ellipse 45% 100% at 12% 0%, rgba(0, 124, 240, .20), transparent 70%),
+    radial-gradient(ellipse 40% 100% at 38% 0%, rgba(0, 223, 216, .14), transparent 70%),
+    radial-gradient(ellipse 40% 100% at 62% 0%, rgba(121, 40, 202, .15), transparent 70%),
+    radial-gradient(ellipse 45% 100% at 88% 0%, rgba(249, 203, 40, .20), transparent 70%);
+  background-repeat: no-repeat;
+  background-size: 100% 300px;
 }
 [data-testid="stHeader"] { background: transparent; }
+[data-testid="stMainBlockContainer"] { max-width: 760px; }
 
-[data-testid="stMainBlockContainer"] {
-  background: #FFFFFF;
-  max-width: 760px;
-  margin: 3rem auto 4rem;
-  padding: 2.5rem 2.25rem 2rem;
-  border-radius: 6px;
-  box-shadow: 0 18px 40px rgba(40, 18, 10, .35);
-}
-@media (max-width: 640px) {
-  [data-testid="stMainBlockContainer"] { margin: 1rem .5rem 2rem; padding: 1.5rem 1rem; }
-}
+/* 제목: 클수록 자간을 좁힌다 */
+h1 { letter-spacing: -0.05em !important; }
+h2, h3, h4 { letter-spacing: -0.03em !important; }
 
-/* 진단한 집 주소: 파란 도로명주소판 */
-.st-key-addr-plate h3 {
-  display: inline-block;
-  background: #1F4E8C;
-  color: #FFFFFF;
-  padding: .55rem 1.1rem;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 3px #1F4E8C, inset 0 0 0 5px #FFFFFF;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  word-break: keep-all;              /* 한국어 단어 중간에서 줄바꿈하지 않게 */
+/* 카드: 흰 바탕 + 1px 테두리, 그림자 없음 */
+[data-testid="stForm"], [data-testid="stExpander"] details, [class*="st-key-signal-"] {
+  background: #ffffff;
+  border: 1px solid #ebebeb;
+  border-radius: 12px;
 }
+[data-testid="stForm"] { padding: 24px; }
+
+/* 진단한 집 주소 */
+.st-key-addr-plate h3 { font-size: 2rem; line-height: 1.25; }
 @media (max-width: 640px) {
-  .st-key-addr-plate h3 { font-size: 1.2rem; }
+  .st-key-addr-plate h3 { font-size: 1.5rem; }
+  h1 { font-size: 2rem !important; }
+  [data-testid="stForm"] { padding: 16px; }
 }

@@ -193,8 +193,8 @@ if d is not None:
     # 2) 신호 카드
     st.markdown("#### 위험 신호")
     icons = {"danger": "🔴", "caution": "🟠", "info": "⚪"}
-    for s in r.signals:
-        with st.container(border=True):
+    for i, s in enumerate(r.signals):
+        with st.container(border=True, key=f"signal-{i}"):
             st.markdown(f"{icons[s.level]} **{s.title}**")
             st.write(s.detail)
             st.caption(f"출처: {s.source}")
