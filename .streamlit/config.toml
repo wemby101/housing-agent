@@ -1,0 +1,7 @@
+[theme]
+base = "light"                       # 흰 패널 위 글자색이 고정되도록 다크모드를 쓰지 않는다
+primaryColor = "#1F4E8C"             # 도로명주소판 남색
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4EFEA"
+textColor = "#1F2430"
+font = "IBM Plex Sans KR:https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap, sans-serif"

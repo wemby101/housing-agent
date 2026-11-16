@@ -1,5 +1,6 @@
 """청년 집 구하기 진단 — 폼 모드 (Streamlit)."""
 from datetime import date
+from pathlib import Path
 
 import streamlit as st
 
@@ -15,6 +16,7 @@ SEARCH_LIMIT = 20
 ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "market": "실거래가 시세"}
 
 st.set_page_config(page_title="청년 집 구하기 진단", page_icon="🏠")
+st.markdown(f"<style>{(Path(__file__).parent / 'style.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 st.title("🏠 청년 집 구하기 진단")
 st.caption("계약 전에 이 집의 위험 신호와 내가 받을 수 있는 주거 지원을 한 번에 확인해요. 서울 빌라(연립·다세대) 대상.")
 
@@ -103,7 +105,8 @@ if d is not None:
 
     # 1) 한 줄 결론
     st.divider()
-    st.subheader(d.address.road_addr)
+    with st.container(key="addr-plate"):
+        st.subheader(d.address.road_addr)
     top = r.signals[0].level if r.signals else "info"
     {"danger": st.error, "caution": st.warning}.get(top, st.info)(
         ("⚠️ " if top in ("danger", "caution") else "") + r.headline)
