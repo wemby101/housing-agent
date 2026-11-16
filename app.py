@@ -40,8 +40,22 @@ def cached_diagnose(*args, **kwargs):
     return diagnose(*args, **kwargs)
 
 
+# 링크(주소창)에 담긴 집·계약 정보. 나이·소득 같은 내 정보는 담지 않는다.
+# 처음 열 때 한 번만 읽는다: 기본값이 바뀌면 Streamlit이 입력칸을 새로 만들어 방금 친 값이 사라진다
+if "link" not in st.session_state:
+    st.session_state["link"] = st.query_params.to_dict()
+link = st.session_state["link"]
+
+
+def link_num(name, default=0):
+    try:
+        return type(default)(float(link[name]))
+    except (KeyError, ValueError):
+        return default
+
+
 # 1. 주소
-keyword = st.text_input("집 주소 검색", placeholder="예: 봉천동 1-70, 청림3다길 12")
+keyword = st.text_input("집 주소 검색", value=link.get("q", ""), placeholder="예: 봉천동 1-70, 청림3다길 12")
 address = None
 if keyword.strip():
     try:
@@ -54,7 +68,8 @@ if keyword.strip():
             st.warning("주소를 찾을 수 없어요. 도로명이나 지번을 다시 확인해 주세요.")
     if results:
         address = st.selectbox(
-            f"검색 결과 {len(results)}건 — 계약할 집을 골라 주세요", results, index=None,
+            f"검색 결과 {len(results)}건 — 계약할 집을 골라 주세요", results,
+            index=next((i for i, a in enumerate(results) if a.pnu == link.get("pnu")), None),
             placeholder="주소 선택",
             format_func=lambda a: f"{a.road_addr}" + (f" · {a.building_name}" if a.building_name else ""),
         )
@@ -64,7 +79,9 @@ if keyword.strip():
 unit = None
 if address is not None and (units := cached_units(address)):
     unit = st.selectbox(
-        "호 선택", units, index=None, placeholder="호를 골라 주세요 (목록에 없으면 비워 두고 아래에 직접 입력)",
+        "호 선택", units,
+        index=next((i for i, u in enumerate(units) if (u.dong, u.ho) == (link.get("dong", ""), link.get("ho"))), None),
+        placeholder="호를 골라 주세요 (목록에 없으면 비워 두고 아래에 직접 입력)",
         format_func=lambda u: " ".join(filter(None, [u.dong, f"{u.ho}호"])) + (f" · 전용 {u.area_m2:g}㎡" if u.area_m2 else ""),
     )
 
@@ -76,21 +93,23 @@ if (d := st.session_state.get("diagnosis")) is not None and address != d.address
 with st.form("diagnose"):
     if unit is None:
         c1, c2, c3 = st.columns(3)
-        dong = c1.text_input("동 (없으면 비움)")
-        ho = c2.text_input("호", placeholder="201")
-        area = c3.number_input("전용면적 (㎡)", min_value=1.0, value=40.0, step=1.0)
+        dong = c1.text_input("동 (없으면 비움)", value=link.get("dong", ""))
+        ho = c2.text_input("호", value=link.get("ho", ""), placeholder="201")
+        area = c3.number_input("전용면적 (㎡)", min_value=1.0, value=link_num("area", 40.0), step=1.0)
     else:  # 공시자료의 면적을 기본값으로, 실제와 다르면 고칠 수 있게
         dong, ho = unit.dong, unit.ho
-        area = st.number_input("전용면적 (㎡)", min_value=1.0, value=unit.area_m2 or 40.0, step=1.0)
+        linked = (unit.dong, unit.ho) == (link.get("dong", ""), link.get("ho"))
+        area = st.number_input("전용면적 (㎡)", min_value=1.0, step=1.0,
+                               value=link_num("area", 40.0) if linked and "area" in link else unit.area_m2 or 40.0)
 
     c1, c2 = st.columns(2)
-    deposit = c1.number_input("보증금 (만원)", min_value=0, value=0, step=500)
-    rent = c2.number_input("월세 (만원, 전세면 0)", min_value=0, value=0, step=5)
+    deposit = c1.number_input("보증금 (만원)", min_value=0, value=link_num("dep"), step=500)
+    rent = c2.number_input("월세 (만원, 전세면 0)", min_value=0, value=link_num("rent"), step=5)
     c1, c2 = st.columns([2, 1])
-    debt = c1.number_input("선순위 채권·근저당 (만원)", min_value=0, value=0, step=500)
-    debt_unknown = c2.checkbox("모름", value=True, help="등기부등본 을구의 채권최고액. 모르면 0원으로 계산하고 경고해요.")
+    debt = c1.number_input("선순위 채권·근저당 (만원)", min_value=0, value=link_num("debt"), step=500)
+    debt_unknown = c2.checkbox("모름", value="debt" not in link, help="등기부등본 을구의 채권최고액. 모르면 0원으로 계산하고 경고해요.")
     official = st.number_input(
-        "공시가격 직접 입력 (만원, 선택)", min_value=0, value=0, step=500,
+        "공시가격 직접 입력 (만원, 선택)", min_value=0, value=link_num("off"), step=500,
         help="부동산공시가격알리미(realtyprice.kr)에서 확인할 수 있어요. 비우면 자동 조회를 시도해요.")
 
     st.markdown("**내 정보**")
@@ -101,6 +120,15 @@ with st.form("diagnose"):
     married = c1.checkbox("기혼")
     homeless = c2.checkbox("무주택", value=True)
     submitted = st.form_submit_button("진단하기", type="primary", use_container_width=True)
+
+# 링크로 열면 한 번 자동으로 진단한다 (내 정보는 기본값)
+from_link = (not st.session_state.get("link_opened") and "diagnosis" not in st.session_state
+             and address is not None and address.pnu == link.get("pnu"))
+st.session_state["link_opened"] = True
+if submitted:
+    st.session_state["profile_from_link"] = False
+elif from_link:
+    submitted = st.session_state["profile_from_link"] = True
 
 if submitted and address is None:
     st.warning("먼저 위에서 주소를 검색하고 골라 주세요.")
@@ -117,6 +145,11 @@ elif submitted and address is not None:
                         manual_official_won=int(official) * MAN or None, today=date.today())
     if d.errors:  # 일시적 실패를 1시간 동안 재사용하지 않도록
         cached_diagnose.clear()
+    if not from_link:  # 새로 진단하면 링크를 갱신하고 체크리스트는 처음부터
+        st.query_params.from_dict({k: v for k, v in {
+            "q": keyword.strip(), "pnu": address.pnu, "dong": dong.strip(), "ho": ho.strip(), "area": f"{area:g}",
+            "dep": deposit, "rent": rent, "debt": None if senior is None else debt, "off": official or None,
+        }.items() if v not in (None, "")})
     st.session_state["diagnosis"] = d
 
 d = st.session_state.get("diagnosis")
@@ -127,6 +160,9 @@ if d is not None:
     st.divider()
     with st.container(key="addr-plate"):
         st.subheader(d.address.road_addr)
+    if st.session_state.get("profile_from_link"):
+        st.info("링크로 연 결과예요. 내 정보(나이·소득 등)는 링크에 저장되지 않아 기본값으로 계산했어요. "
+                "지원 정책을 정확히 보려면 위에 내 정보를 넣고 다시 진단하세요.")
     top = r.signals[0].level if r.signals else "info"
     {"danger": st.error, "caution": st.warning}.get(top, st.info)(
         ("⚠️ " if top in ("danger", "caution") else "") + r.headline)
@@ -181,8 +217,13 @@ if d is not None:
         "특약 넣기: \"잔금일 다음 날까지 근저당 등 권리 변동을 하지 않는다\"",
         "특약 넣기: \"전세보증보험 가입이 거절되면 계약을 해제하고 계약금을 돌려준다\"",
     ]
-    for it in items:
-        st.checkbox(it, key=it)
+    done = set(link.get("done", "").split(",")) - {""}
+    checked = [str(i) for i, it in enumerate(items) if st.checkbox(it, value=str(i) in done)]
+    if set(checked) != set(st.query_params.get("done", "").split(",")) - {""}:  # 체크한 항목을 링크에 저장해 새로고침해도 남게
+        if checked:
+            st.query_params["done"] = ",".join(checked)
+        else:
+            del st.query_params["done"]
 
 st.divider()
 st.caption(DISCLAIMER)

@@ -123,3 +123,39 @@ def test_picking_unit_fills_dong_ho_and_area(calls, monkeypatch):
     at.button[0].click().run()
     args, _ = calls[-1]
     assert (args[1], args[2], args[3]) == ("", "201", 41.01)
+
+
+LINK = {"q": "봉천동 1-70", "pnu": BONGCHEON.pnu, "ho": "201", "area": "41.0", "dep": "20000", "rent": "0", "debt": "5000"}
+
+
+def test_submit_saves_house_inputs_in_link_but_not_personal_info(calls):
+    at = submit(deposit=20000, debt=5000)
+    qp = at.query_params
+    assert qp["pnu"] == BONGCHEON.pnu and qp["dep"] == "20000" and qp["debt"] == "5000" and qp["q"] == "봉천동 1-70"
+    assert not {"age", "income", "married", "homeless"} & set(qp)
+
+
+def test_unknown_debt_is_left_out_of_link(calls):
+    assert "debt" not in submit().query_params
+
+
+def test_link_restores_diagnosis_on_open(calls):
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.query_params.update(LINK)
+    at.run()
+    args, _ = calls[-1]
+    assert (args[0], args[2], args[4], args[6]) == (BONGCHEON, "201", 200_000_000, 50_000_000)
+    assert any(h.value == BONGCHEON.road_addr for h in at.subheader)
+    assert any("내 정보" in i.value for i in at.info)  # 나이·소득은 링크에 없어 기본값이라는 안내
+
+
+def test_checklist_progress_is_kept_in_link(calls):
+    at = submit()
+    box = next(c for c in at.checkbox if c.label.startswith("등기부등본"))
+    box.check().run()
+    i = [c.label for c in at.checkbox if c.label.startswith(("등기부등본", "건축물대장", "특약", "보증금 협상"))].index(box.label)
+    assert at.query_params["done"] == str(i)
+    reopened = AppTest.from_file(APP, default_timeout=10)
+    reopened.query_params.update(at.query_params)
+    reopened.run()
+    assert next(c for c in reopened.checkbox if c.label == box.label).value is True
