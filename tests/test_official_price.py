@@ -59,3 +59,19 @@ def test_missing_vworld_key_raises_user_message(monkeypatch):
     with pytest.raises(DataSourceError, match="직접 입력") as e:
         get_official_price(BONGCHEON, "", "201")
     assert "VWORLD_API_KEY" not in str(e.value) and ".env" not in str(e.value)
+
+
+def test_list_units_latest_year_unique_sorted(monkeypatch):
+    from housing.official_price import Unit, list_units
+    get = fake_get("vworld_units_bongcheon.json")  # 봉천동 1-70 전체 호, 2026년 9개 호(행은 중복)
+    monkeypatch.setattr(official_price.requests, "get", get)
+    units = list_units(BONGCHEON)
+    assert [u.ho for u in units] == ["101", "102", "103", "201", "202", "203", "301", "302", "401"]
+    assert Unit("", "201", 41.01) in units
+    assert "hoNm" not in get.calls[0][1]
+
+
+def test_list_units_empty_when_no_rows(monkeypatch):
+    from housing.official_price import list_units
+    monkeypatch.setattr(official_price.requests, "get", fake_get("vworld_no_rows.json"))
+    assert list_units(BONGCHEON) == []

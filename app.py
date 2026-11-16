@@ -6,6 +6,7 @@ import streamlit as st
 
 from housing.address import search_address
 from housing.errors import DataSourceError
+from housing.official_price import list_units
 from housing.pipeline import diagnose
 from housing.policies import Profile
 from housing.risk import man
@@ -24,6 +25,14 @@ st.caption("계약 전에 이 집의 위험 신호와 내가 받을 수 있는 �
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_search(keyword):
     return search_address(keyword, limit=SEARCH_LIMIT)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_units(addr):
+    try:
+        return list_units(addr)
+    except DataSourceError:  # 호 목록이 없으면 직접 입력으로 대신한다
+        return []
 
 
 @st.cache_data(ttl=3600, show_spinner="공공데이터를 조회하고 있어요…")
@@ -52,16 +61,27 @@ if keyword.strip():
         if len(results) >= SEARCH_LIMIT:
             st.caption(f"결과가 많아 {SEARCH_LIMIT}건까지만 보여요. 찾는 집이 없으면 번지·건물명까지 더 자세히 입력해 주세요.")
 
+unit = None
+if address is not None and (units := cached_units(address)):
+    unit = st.selectbox(
+        "호 선택", units, index=None, placeholder="호를 골라 주세요 (목록에 없으면 비워 두고 아래에 직접 입력)",
+        format_func=lambda u: " ".join(filter(None, [u.dong, f"{u.ho}호"])) + (f" · 전용 {u.area_m2:g}㎡" if u.area_m2 else ""),
+    )
+
 # 다른 집을 고르면 이전 진단 결과를 숨긴다
 if (d := st.session_state.get("diagnosis")) is not None and address != d.address:
     del st.session_state["diagnosis"]
 
 # 2. 계약·내 정보
 with st.form("diagnose"):
-    c1, c2, c3 = st.columns(3)
-    dong = c1.text_input("동 (없으면 비움)")
-    ho = c2.text_input("호", placeholder="201")
-    area = c3.number_input("전용면적 (㎡)", min_value=1.0, value=40.0, step=1.0)
+    if unit is None:
+        c1, c2, c3 = st.columns(3)
+        dong = c1.text_input("동 (없으면 비움)")
+        ho = c2.text_input("호", placeholder="201")
+        area = c3.number_input("전용면적 (㎡)", min_value=1.0, value=40.0, step=1.0)
+    else:  # 공시자료의 면적을 기본값으로, 실제와 다르면 고칠 수 있게
+        dong, ho = unit.dong, unit.ho
+        area = st.number_input("전용면적 (㎡)", min_value=1.0, value=unit.area_m2 or 40.0, step=1.0)
 
     c1, c2 = st.columns(2)
     deposit = c1.number_input("보증금 (만원)", min_value=0, value=0, step=500)

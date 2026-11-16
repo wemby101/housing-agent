@@ -6,6 +6,7 @@ import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 import housing.address
+import housing.official_price
 import housing.pipeline
 from housing.pipeline import Diagnosis
 from housing.risk import RiskReport
@@ -26,6 +27,7 @@ def calls(monkeypatch):
 
     monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
     monkeypatch.setattr(housing.pipeline, "diagnose", fake_diagnose)
+    monkeypatch.setattr(housing.official_price, "list_units", lambda addr: [])
     return seen
 
 
@@ -106,3 +108,18 @@ def test_full_page_of_results_asks_for_more_detail(calls, monkeypatch):
     at.run()
     at.text_input[0].input("관악구").run()
     assert any("자세히" in c.value for c in at.caption)
+
+
+def test_picking_unit_fills_dong_ho_and_area(calls, monkeypatch):
+    from housing.official_price import Unit
+    u201 = Unit("", "201", 41.01)
+    monkeypatch.setattr(housing.official_price, "list_units", lambda addr: [Unit("", "101", 30.0), u201])
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.text_input[0].input("봉천동 1-70").run()
+    at.selectbox[0].select(BONGCHEON).run()
+    at.selectbox[1].select(u201).run()
+    at.number_input[DEPOSIT].set_value(10000)
+    at.button[0].click().run()
+    args, _ = calls[-1]
+    assert (args[1], args[2], args[3]) == ("", "201", 41.01)
