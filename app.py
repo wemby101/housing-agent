@@ -1,5 +1,6 @@
 """청년 집 구하기 진단 — 폼 모드 (Streamlit)."""
 from datetime import date
+from urllib.parse import urlencode
 from pathlib import Path
 
 import streamlit as st
@@ -10,6 +11,7 @@ from housing.official_price import list_units
 from housing.pipeline import diagnose
 from housing.policies import Profile
 from housing.registry import read_registry_pdf
+from housing.report import build_report
 from housing.risk import man
 
 DISCLAIMER = "참고용 진단입니다. 계약 전 공인중개사·HUG(1566-9009) 상담으로 확인하세요."
@@ -245,6 +247,16 @@ if d is not None:
             st.query_params["done"] = ",".join(checked)
         else:
             del st.query_params["done"]
+
+    # 5) 저장·공유
+    st.markdown("#### 저장·공유")
+    st.download_button(
+        "결과 파일로 저장 (.html)", build_report(d, items, {int(i) for i in checked}, DISCLAIMER, date.today()),
+        file_name=f"집진단_{date.today():%Y%m%d}.html", mime="text/html",
+        help="폰·PC 어디서나 열려요. 파일을 열고 인쇄하면 PDF로도 저장할 수 있어요.")
+    if st.context.url:
+        st.code(f"{st.context.url}?{urlencode(st.query_params.to_dict())}", language=None)
+        st.caption("이 링크를 복사해 보내면 같은 집·계약 조건으로 열려요. 나이·소득 같은 내 정보는 링크에 들어가지 않아요.")
 
 st.divider()
 st.caption(DISCLAIMER)

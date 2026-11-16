@@ -186,3 +186,9 @@ def test_link_flags_apply_only_when_opening_link(calls):
     at.number_input[DEPOSIT].set_value(30000)
     at.button[0].click().run()
     assert calls[-1][1]["registry_flags"] == ()
+
+
+def test_result_offers_report_download(calls):
+    at = submit()
+    buttons = at.get("download_button")
+    assert len(buttons) == 1 and "저장" in buttons[0].proto.label
