@@ -20,7 +20,8 @@ cp .env.example .env   # 키 입력
 |---|---|---|
 | `JUSO_API_KEY` | business.juso.go.kr | 주소 검색 → 시군구·법정동·번지 |
 | `DATA_GO_KR_KEY` | data.go.kr (일반 인증키, Decoding) | 건축물대장, 연립다세대 매매 실거래가 |
-| `VWORLD_API_KEY` | vworld.kr (선택) | 공동주택 공시가격 자동 조회 — 없으면 화면에서 직접 입력 |
+| `VWORLD_API_KEY` | vworld.kr (선택, 활용API: 국가중점) | 공동주택 공시가격 자동 조회 — 없으면 화면에서 직접 입력 |
+| `VWORLD_DOMAIN` | (선택) | 브이월드 키에 등록한 서비스URL. 기본값 `localhost:8501`, 배포하면 배포 주소로 바꾸고 브이월드에도 같은 주소 등록 |
 
 Streamlit Community Cloud에서는 Secrets에 같은 이름으로 최상위(root-level)에 넣으면 환경변수로 읽힙니다.
 
