@@ -46,3 +46,12 @@ def test_search_error_code_raises(monkeypatch):
 def test_search_zero_results_returns_empty(monkeypatch):
     monkeypatch.setattr(address.requests, "get", fake_get("juso_empty.json"))
     assert search_address("없는주소") == []
+
+
+def test_network_error_message_hides_key(monkeypatch):
+    def leak(url, params=None, timeout=None):
+        raise address.requests.ConnectionError(f"failed: {url}?confmKey={params['confmKey']}")
+    monkeypatch.setattr(address.requests, "get", leak)
+    with pytest.raises(DataSourceError) as e:
+        search_address("서울시청")
+    assert "test-key" not in str(e.value)

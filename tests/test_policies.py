@@ -57,4 +57,5 @@ def test_real_policy_table_is_well_formed():
 
 
 def test_real_table_jeonse_youth_gets_guarantee_fee():
-    assert "guarantee_fee" in ids(match_policies(Profile(**JEONSE), load_policies()))
+    m = {x.policy["id"]: x for x in match_policies(Profile(**JEONSE), load_policies())}
+    assert m["guarantee_fee"].status == "eligible"  # 반환보증 가입은 자격이 아니라 할 일

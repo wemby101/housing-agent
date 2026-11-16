@@ -67,3 +67,13 @@ def test_items_of_shapes():
     assert items_of({"items": ""}) == []
     assert items_of({"items": {"item": {"a": 1}}}) == [{"a": 1}]
     assert items_of({"items": {"item": [{"a": 1}, {"a": 2}]}}) == [{"a": 1}, {"a": 2}]
+
+
+def test_http_error_message_hides_service_key(monkeypatch):
+    def leak(url, params=None, timeout=None):
+        raise datagokr.requests.HTTPError(f"403 Client Error: Forbidden for url: {url}?serviceKey={params['serviceKey']}",
+                                          response=FakeResponse("", 403))
+    monkeypatch.setattr(datagokr.requests, "get", leak)
+    with pytest.raises(DataSourceError) as e:
+        call_datagokr("https://example", {})
+    assert "test-key" not in str(e.value) and "403" in str(e.value)

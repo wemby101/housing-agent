@@ -54,8 +54,8 @@ def search_address(keyword: str, limit: int = 10) -> list[Address]:
         resp = requests.get(JUSO_URL, params=params, timeout=10)
         resp.raise_for_status()
         results = resp.json()["results"]
-    except (requests.RequestException, ValueError, KeyError) as e:
-        raise DataSourceError(f"주소 검색 실패: {e}") from e
+    except (requests.RequestException, ValueError, KeyError) as e:  # 메시지에 confmKey가 든 URL이 있을 수 있다
+        raise DataSourceError(f"주소 검색 실패 ({type(e).__name__})") from None
     common = results["common"]
     if common.get("errorCode") != "0":
         raise DataSourceError(f"주소 검색 실패: {common.get('errorMessage')}")
