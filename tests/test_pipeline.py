@@ -40,6 +40,7 @@ def test_market_failure_does_not_block_other_results(sources, monkeypatch):
     monkeypatch.setattr(pipeline, "get_market_price", boom)
     d = run(manual_official_won=160_000_000)
     assert "market" in d.errors and d.market is None
+    assert "NO_MARKET_DATA" not in {s.code for s in d.risk.signals}  # 오류 카드가 대신 설명
     assert d.risk.guarantee_limit_won == 201_600_000
     assert "guarantee_fee" in {m.policy["id"] for m in d.policies}
 

@@ -72,3 +72,25 @@ def test_signals_sorted_danger_caution_info():
     r = assess_risk(90_000_000, None, None, market(100_000_000), shop)
     order = [s.level for s in r.signals]
     assert order == sorted(order, key=["danger", "caution", "info"].index)
+
+
+def test_senior_debt_counts_in_ratio_and_target():
+    r = assess_risk(150_000_000, 100_000_000, None, market(200_000_000), residential)
+    assert "HIGH_RATIO" in codes(r) and abs(r.deposit_ratio - 1.25) < 1e-9
+    assert r.target_deposit_won == 40_000_000  # 2억 × 70% − 1억
+
+
+def test_over_limit_amount_uses_floored_limit():
+    r = assess_risk(100_000_000, 200_000_000, OfficialPrice(100_000_000, 2026, "x"), None, residential)
+    assert "10,000만" in r.signals[0].title
+
+
+def test_ratio_title_never_rounds_into_next_band():
+    r = assess_risk(79_600_000, 0, None, market(100_000_000), residential)
+    s = next(s for s in r.signals if s.code == "CAUTION_RATIO")
+    assert "79%" in s.title
+
+
+def test_market_fetch_failure_has_no_false_trade_count_signal():
+    r = assess_risk(100_000_000, 0, None, None, residential, market_failed=True)
+    assert "NO_MARKET_DATA" not in codes(r)

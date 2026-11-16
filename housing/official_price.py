@@ -16,6 +16,9 @@ class OfficialPrice:
 
 
 def get_official_price(addr: Address, dong: str, ho: str) -> OfficialPrice | None:
-    get_key("VWORLD_API_KEY")
+    try:
+        get_key("VWORLD_API_KEY")
+    except DataSourceError:
+        raise DataSourceError("공시가격 자동 조회를 아직 쓸 수 없어요. 공시가격을 직접 입력해 주세요.") from None
     # shortcut: VWorld 응답 필드명을 키 없이 확정할 수 없어 아직 미구현, VWORLD_API_KEY 발급 후 fixture로 구현
     raise DataSourceError("공시가격 자동 조회 준비 중이에요. 공시가격을 직접 입력해 주세요.")

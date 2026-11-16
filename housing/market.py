@@ -7,6 +7,7 @@ from statistics import median
 
 from housing.address import Address
 from housing.datagokr import call_datagokr, items_of
+from housing.errors import DataSourceError
 
 TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade"
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
@@ -53,9 +54,11 @@ def _ym_shift(d: date, back: int) -> str:
 
 def fetch_trades(lawd_cd: str, ym: str) -> list[Trade]:
     cache = CACHE_DIR / f"rh_{lawd_cd}_{ym}.json"
-    if cache.exists():
+    try:
         items = json.loads(cache.read_text(encoding="utf-8"))
-    else:
+    except (OSError, ValueError):  # 없거나 깨진 캐시는 다시 받는다
+        items = None
+    if items is None:
         items, page = [], 1
         while True:
             body = call_datagokr(TRADE_URL, {"LAWD_CD": lawd_cd, "DEAL_YMD": ym, "numOfRows": PAGE_SIZE, "pageNo": page})
@@ -66,8 +69,13 @@ def fetch_trades(lawd_cd: str, ym: str) -> list[Trade]:
             page += 1
         if ym < _ym_shift(date.today(), 1):  # 지난달·이번 달은 신고가 계속 들어오므로 캐시하지 않음
             CACHE_DIR.mkdir(exist_ok=True)
-            cache.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
-    return [tr for tr in map(parse_trade, items) if tr]
+            tmp = cache.with_suffix(".tmp")
+            tmp.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(cache)
+    try:
+        return [tr for tr in map(parse_trade, items) if tr]
+    except (KeyError, ValueError, TypeError) as e:
+        raise DataSourceError(f"실거래가 응답 형식이 예상과 달라요 ({type(e).__name__}: {e})") from None
 
 
 def _jibun_of(addr: Address) -> str:

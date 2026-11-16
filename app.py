@@ -76,12 +76,18 @@ with st.form("diagnose"):
 if submitted and address is None:
     st.warning("먼저 위에서 주소를 검색하고 골라 주세요.")
 
-if submitted and address is not None:
+if submitted and address is not None and deposit == 0 and rent == 0:
+    st.warning("보증금이나 월세를 입력해 주세요. 둘 다 0이면 진단할 수 없어요.")
+elif submitted and address is not None:
     profile = Profile(age=int(age), income_won=int(income) * MAN, married=married, homeless=homeless,
                       deposit_won=int(deposit) * MAN, monthly_rent_won=int(rent) * MAN)
+    senior = None if debt_unknown and debt == 0 else int(debt) * MAN  # 입력한 채권은 '모름'보다 우선
+    st.session_state["senior_debt"] = senior or 0
     d = cached_diagnose(address, dong.strip(), ho.strip(), float(area), int(deposit) * MAN, int(rent) * MAN,
-                        None if debt_unknown else int(debt) * MAN, profile,
+                        senior, profile,
                         manual_official_won=int(official) * MAN or None, today=date.today())
+    if d.errors:  # 일시적 실패를 1시간 동안 재사용하지 않도록
+        cached_diagnose.clear()
     st.session_state["diagnosis"] = d
 
 d = st.session_state.get("diagnosis")
@@ -104,8 +110,6 @@ if d is not None:
             st.write(s.detail)
             st.caption(f"출처: {s.source}")
     for key, msg in d.errors.items():
-        if key == "official" and d.official is None:
-            msg += " 공시가격을 직접 입력하면 보증보험 한도를 계산할 수 있어요."
         st.warning(f"{ERROR_LABELS.get(key, key)} — {msg}")
     if d.building:
         st.caption(f"건축물대장: {d.building.main_purpose} · {d.building.etc_purpose} · {d.building.households}세대 · "
@@ -139,7 +143,7 @@ if d is not None:
         if r.guarantee_limit_won is not None:
             parts.append(f"보증보험 한도 {man(max(r.guarantee_limit_won, 0))} 원 (공시가격 × 126% − 선순위 채권)")
         if d.market is not None:
-            parts.append(f"추정 시세 × 70% = {man(d.market.price_won * 7 // 10)} 원")
+            parts.append(f"추정 시세 × 70% − 선순위 채권 = {man(d.market.price_won * 7 // 10 - st.session_state.get('senior_debt', 0))} 원")
         items.append(f"보증금 협상 목표: **{man(r.target_deposit_won)} 원 이하** — " + " 와 ".join(parts) + " 중 낮은 값")
     items += [
         "등기부등본(을구)에서 근저당·선순위 채권 확인",

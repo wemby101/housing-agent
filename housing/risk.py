@@ -32,7 +32,8 @@ def man(won: int) -> str:
 
 
 def assess_risk(deposit_won: int, senior_debt_won: int | None, official: OfficialPrice | None,
-                market: MarketEstimate | None, building: BuildingInfo | None) -> RiskReport:
+                market: MarketEstimate | None, building: BuildingInfo | None,
+                market_failed: bool = False) -> RiskReport:
     signals: list[Signal] = []
     debt = senior_debt_won or 0
     limit = ratio = target = None
@@ -51,7 +52,7 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
             limit = official.price_won * 126 // 100 - debt
             if deposit_won > limit:
                 signals.append(Signal(
-                    "GUARANTEE_BLOCKED", "danger", f"보증보험 가입 한도를 {man(deposit_won - limit)} 원 넘어요",
+                    "GUARANTEE_BLOCKED", "danger", f"보증보험 가입 한도를 {man(deposit_won - max(limit, 0))} 원 넘어요",
                     f"한도 = 공시가격 {man(official.price_won)} 원 × 126% − 선순위 채권 {man(debt)} 원 = {man(max(limit, 0))} 원",
                     f"HUG 전세보증 기준 (공시가격 126%) · 공시가격: {official.source} {official.year}"))
         else:
@@ -59,20 +60,21 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
                 "NO_OFFICIAL_PRICE", "info", "공시가격을 몰라 보증보험 한도를 계산하지 못했어요",
                 "부동산공시가격알리미(realtyprice.kr)에서 확인해 입력하면 계산할 수 있어요.", "-"))
         if market is not None:
-            ratio = deposit_won / market.price_won
+            ratio = (deposit_won + debt) / market.price_won  # 선순위 채권도 내 보증금보다 먼저 갚는 돈
             if ratio >= 0.7:
                 high = ratio >= 0.8
                 signals.append(Signal(
                     "HIGH_RATIO" if high else "CAUTION_RATIO", "danger" if high else "caution",
-                    f"보증금이 추정 시세의 {ratio:.0%}예요" + (" (깡통전세 위험)" if high else " (주의)"),
+                    f"보증금{'+선순위 채권' if debt else ''}이 추정 시세의 {int(ratio * 100)}%예요"
+                    + (" (깡통전세 위험)" if high else " (주의)"),
                     f"추정 시세 {man(market.price_won)} 원 (최근 {market.months}개월 비슷한 거래 {market.comp_count}건). "
                     "일반적으로 80% 이상은 위험, 70~80%는 주의로 봐요.",
                     "국토교통부 연립다세대 매매 실거래가 · 일반적 기준"))
-        else:
+        elif not market_failed:  # 조회 실패는 화면의 오류 안내가 설명한다
             signals.append(Signal(
                 "NO_MARKET_DATA", "info", "비슷한 매매 거래가 부족해 시세를 추정하지 못했어요",
                 "최근 24개월 같은 건물 또는 같은 동의 비슷한 집 거래가 2건 미만이에요.", "국토교통부 실거래가"))
-        caps = [c for c in (limit, market.price_won * 7 // 10 if market else None) if c is not None]
+        caps = [c for c in (limit, market.price_won * 7 // 10 - debt if market else None) if c is not None]
         target = max(min(caps), 0) if caps else None
 
     signals.sort(key=lambda s: LEVEL_ORDER.index(s.level))

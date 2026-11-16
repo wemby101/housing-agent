@@ -73,3 +73,18 @@ def test_fetch_trades_pages_and_caches_old_months(monkeypatch, tmp_path):
     fetch_trades("11620", "202610")  # 지난달은 아직 신고가 들어오는 중 → 캐시 안 함
     fetch_trades("11620", "202610")
     assert calls == [1, 2, 1, 2, 1, 2]
+
+
+def test_unexpected_item_shape_raises_datasource_error(monkeypatch, tmp_path):
+    from housing.errors import DataSourceError
+    monkeypatch.setattr(market, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(market, "call_datagokr", lambda url, params: {"totalCount": 1, "items": {"item": [{"거래금액": "1"}]}})
+    with pytest.raises(DataSourceError, match="형식"):
+        fetch_trades("11620", "202601")
+
+
+def test_corrupt_cache_is_refetched(monkeypatch, tmp_path):
+    monkeypatch.setattr(market, "CACHE_DIR", tmp_path)
+    (tmp_path / "rh_11620_202601.json").write_text("[{trunc", encoding="utf-8")
+    monkeypatch.setattr(market, "call_datagokr", lambda url, params: {"totalCount": 1, "items": {"item": [ITEM]}})
+    assert len(fetch_trades("11620", "202601")) == 1

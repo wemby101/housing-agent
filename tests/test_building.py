@@ -77,3 +77,29 @@ def test_http_error_message_hides_service_key(monkeypatch):
     with pytest.raises(DataSourceError) as e:
         call_datagokr("https://example", {})
     assert "test-key" not in str(e.value) and "403" in str(e.value)
+
+
+RTMS_XML_OK = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<response><header><resultCode>000</resultCode><resultMsg>OK</resultMsg></header>
+<body><items><item><dealAmount>   21,000</dealAmount><umdNm>봉천동</umdNm></item>
+<item><dealAmount>18,000</dealAmount><umdNm>신림동</umdNm></item></items>
+<numOfRows>1000</numOfRows><pageNo>1</pageNo><totalCount>2</totalCount></body></response>"""  # 합성 — 실제 응답 형식 확인 전
+
+
+def test_xml_success_with_000_code_returns_items(monkeypatch):
+    _serve(monkeypatch, RTMS_XML_OK)
+    body = call_datagokr("https://example", {})
+    assert int(body["totalCount"]) == 2
+    assert [i["umdNm"] for i in items_of(body)] == ["봉천동", "신림동"]
+    assert items_of(body)[0]["dealAmount"] == "21,000"
+
+
+def test_json_success_with_000_code(monkeypatch):
+    _serve(monkeypatch, json.dumps({"response": {"header": {"resultCode": "000", "resultMsg": "OK"}, "body": {"items": ""}}}))
+    assert items_of(call_datagokr("https://example", {})) == []
+
+
+def test_xml_result_code_error_raises(monkeypatch):
+    _serve(monkeypatch, "<response><header><resultCode>99</resultCode><resultMsg>LIMITED</resultMsg></header></response>")
+    with pytest.raises(DataSourceError, match="LIMITED"):
+        call_datagokr("https://example", {})
