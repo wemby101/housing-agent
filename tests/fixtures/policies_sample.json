@@ -23,7 +23,8 @@
   "unverifiable_conditions": [],
   "min_deposit_won": null,
   "max_income_won_newlywed": 75000000,
-  "regions": []
+  "regions": [],
+  "max_area_m2": null
  },
  {
   "id": "monthly_rent",
@@ -51,7 +52,8 @@
   "max_income_won_newlywed": null,
   "regions": [
    "11"
-  ]
+  ],
+  "max_area_m2": null
  },
  {
   "id": "any_loan",
@@ -75,6 +77,7 @@
   "unverifiable_conditions": [],
   "min_deposit_won": null,
   "max_income_won_newlywed": null,
-  "regions": []
+  "regions": [],
+  "max_area_m2": null
  }
 ]

@@ -21,7 +21,8 @@
   "unverifiable_conditions": [],
   "min_deposit_won": 1,
   "max_income_won_newlywed": 75000000,
-  "regions": []
+  "regions": [],
+  "max_area_m2": null
  },
  {
   "id": "seoul_youth_monthly_rent",
@@ -57,7 +58,8 @@
   "max_income_won_newlywed": null,
   "regions": [
    "11"
-  ]
+  ],
+  "max_area_m2": null
  },
  {
   "id": "molit_youth_monthly_rent",
@@ -86,7 +88,8 @@
   ],
   "min_deposit_won": null,
   "max_income_won_newlywed": null,
-  "regions": []
+  "regions": [],
+  "max_area_m2": null
  },
  {
   "id": "seoul_youth_deposit_interest",
@@ -115,7 +118,8 @@
   "max_income_won_newlywed": null,
   "regions": [
    "11"
-  ]
+  ],
+  "max_area_m2": null
  },
  {
   "id": "seoul_youth_brokerage_moving",
@@ -150,7 +154,8 @@
   "max_income_won_newlywed": null,
   "regions": [
    "11"
-  ]
+  ],
+  "max_area_m2": null
  },
  {
   "id": "incheon_youth_monthly_rent",
@@ -180,7 +185,8 @@
   "max_income_won_newlywed": null,
   "regions": [
    "28"
-  ]
+  ],
+  "max_area_m2": null
  },
  {
   "id": "incheon_youth_deposit_interest",
@@ -196,14 +202,13 @@
   "max_monthly_rent_won": null,
   "homeless_required": true,
   "benefit_max_won": null,
-  "benefit_text": "임차보증금 대출 최대 1억 원(보증금의 90% 이내), 인천시가 이자를 연 3.0% 지원(자녀 1명 이상이면 3.5%), 2년 만기(1회 연장, 최장 4년). 2026년 모집(5.11~5.29, 60명)은 마감 — 2027년 공고 확인",
+  "benefit_text": "임차보증금 대출 최대 1억 원(보증금의 90% 이내), 인천시가 이자를 연 3.0% 지원(자녀 1명 이상이면 3.5%), 전용 85㎡ 이하(주거용 오피스텔 포함), 2년 만기(1회 연장, 최장 4년). 2026년 모집(5.11~5.29, 60명)은 마감 — 2027년 공고 확인",
   "documents": [],
   "apply_url": "https://youth.incheon.go.kr/dwelling/interest.jsp",
   "source_url": "https://www.incheon.go.kr/IC010101/view?nttNo=2045823",
   "checked_date": "2026-11-16",
   "unverifiable_conditions": [
    "보증부 월세는 월세를 보증금으로 환산해 합한 금액이 2억 5천만 원 이하",
-   "전용면적 85㎡ 이하 주택(주거용 오피스텔 포함)",
    "무주택 세대주 (부부·자녀 포함 무주택)",
    "주택도시기금 대출(버팀목 등) 이용 중이거나 주거급여 수급자면 제외",
    "선정 후 대출추천서를 받고 새로 계약하는 경우만 지원"
@@ -212,7 +217,8 @@
   "max_income_won_newlywed": null,
   "regions": [
    "28"
-  ]
+  ],
+  "max_area_m2": 85
  },
  {
   "id": "gyeonggi_city_youth_interest",
@@ -241,6 +247,7 @@
   "max_income_won_newlywed": null,
   "regions": [
    "41"
-  ]
+  ],
+  "max_area_m2": null
  }
 ]

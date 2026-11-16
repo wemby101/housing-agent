@@ -100,3 +100,18 @@ def test_incheon_35_to_39_gets_incheon_rent_not_molit():
     p = Profile(**{**JEONSE, "age": 37, "deposit_won": 10_000_000, "monthly_rent_won": 500_000})
     got = ids(match_policies(p, load_policies(), region="28"))
     assert "incheon_youth_monthly_rent" in got and "molit_youth_monthly_rent" not in got
+
+
+def test_area_limit_checked_when_area_known():
+    base = {**JEONSE, "deposit_won": 200_000_000}
+    real = load_policies()
+    big = ids(match_policies(Profile(**base, area_m2=141.16), real, region="28"))
+    assert "incheon_youth_deposit_interest" not in big
+    m = {x.policy["id"]: x for x in match_policies(Profile(**base, area_m2=59.9), real, region="28")}
+    reasons = m["incheon_youth_deposit_interest"].reasons
+    assert "전용면적 59.9㎡ ≤ 85㎡" in reasons and not any("85㎡" in r for r in reasons if r.startswith("확인 필요"))
+
+
+def test_area_limit_needs_check_when_area_unknown():
+    m = {x.policy["id"]: x for x in match_policies(Profile(**{**JEONSE, "deposit_won": 200_000_000}), load_policies(), region="28")}
+    assert any("85㎡" in r for r in m["incheon_youth_deposit_interest"].reasons if r.startswith("확인 필요"))

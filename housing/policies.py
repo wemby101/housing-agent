@@ -16,6 +16,7 @@ class Profile:
     homeless: bool
     deposit_won: int
     monthly_rent_won: int
+    area_m2: float | None = None  # 계약할 집의 전용면적, 모르면 None
 
     @property
     def contract_type(self) -> str:
@@ -61,6 +62,13 @@ def _check(profile: Profile, p: dict) -> tuple[list[str], list[str]] | None:
             if value > p[key]:
                 return None
             reasons.append(f"{label} {man(value)} 원 ≤ {man(p[key])} 원")
+    if p.get("max_area_m2") is not None:
+        if profile.area_m2 is None:
+            unverified.append(f"전용면적 {p['max_area_m2']:g}㎡ 이하 주택")
+        elif profile.area_m2 > p["max_area_m2"]:
+            return None
+        else:
+            reasons.append(f"전용면적 {profile.area_m2:g}㎡ ≤ {p['max_area_m2']:g}㎡")
     if p.get("homeless_required"):
         if not profile.homeless:
             return None

@@ -157,7 +157,7 @@ if submitted and address is not None and deposit == 0 and rent == 0:
     st.warning("보증금이나 월세를 입력해 주세요. 둘 다 0이면 진단할 수 없어요.")
 elif submitted and address is not None:
     profile = Profile(age=int(age), income_won=int(income) * MAN, married=married, homeless=homeless,
-                      deposit_won=int(deposit) * MAN, monthly_rent_won=int(rent) * MAN)
+                      deposit_won=int(deposit) * MAN, monthly_rent_won=int(rent) * MAN, area_m2=float(area) or None)
     senior = None if debt_unknown and debt == 0 else int(debt) * MAN  # 입력한 채권은 '모름'보다 우선
     st.session_state["senior_debt"] = senior or 0
     d = cached_diagnose(address, dong.strip(), ho.strip(), float(area), int(deposit) * MAN, int(rent) * MAN,
