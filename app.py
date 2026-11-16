@@ -9,6 +9,7 @@ from housing.errors import DataSourceError
 from housing.official_price import list_units
 from housing.pipeline import diagnose
 from housing.policies import Profile
+from housing.registry import read_registry_pdf
 from housing.risk import man
 
 DISCLAIMER = "참고용 진단입니다. 계약 전 공인중개사·HUG(1566-9009) 상담으로 확인하세요."
@@ -85,6 +86,22 @@ if address is not None and (units := cached_units(address)):
         format_func=lambda u: " ".join(filter(None, [u.dong, f"{u.ho}호"])) + (f" · 전용 {u.area_m2:g}㎡" if u.area_m2 else ""),
     )
 
+reading = None
+if address is not None:
+    pdf = st.file_uploader("등기부등본 PDF (선택) — 올리면 근저당을 자동으로 채워요", type="pdf",
+                           help="인터넷등기소(iros.go.kr)에서 열람·발급한 PDF. 사진·스캔본은 읽지 못해요. 파일은 저장하지 않아요.")
+    if pdf is not None:
+        try:
+            reading = read_registry_pdf(pdf.getvalue())
+        except DataSourceError as e:
+            st.warning(str(e))
+        else:
+            lines = [f"- {l.rank}번 {l.kind} {man(l.amount_won)} 원" for l in reading.liens] or ["- 남아 있는 근저당·전세권이 없어요"]
+            st.success("등기부에서 읽은 선순위 채권 (말소된 건 제외)\n" + "\n".join(lines)
+                       + f"\n\n합계 **{man(reading.total_won)} 원**을 아래 칸에 채웠어요. 실제 등기부와 다르면 고쳐 주세요.")
+            if reading.flags:
+                st.error(f"등기부에 {'·'.join(reading.flags)} 기록이 있어요. 계약 전에 반드시 확인하세요.")
+
 # 다른 집을 고르면 이전 진단 결과를 숨긴다
 if (d := st.session_state.get("diagnosis")) is not None and address != d.address:
     del st.session_state["diagnosis"]
@@ -106,8 +123,9 @@ with st.form("diagnose"):
     deposit = c1.number_input("보증금 (만원)", min_value=0, value=link_num("dep"), step=500)
     rent = c2.number_input("월세 (만원, 전세면 0)", min_value=0, value=link_num("rent"), step=5)
     c1, c2 = st.columns([2, 1])
-    debt = c1.number_input("선순위 채권·근저당 (만원)", min_value=0, value=link_num("debt"), step=500)
-    debt_unknown = c2.checkbox("모름", value="debt" not in link, help="등기부등본 을구의 채권최고액. 모르면 0원으로 계산하고 경고해요.")
+    debt = c1.number_input("선순위 채권·근저당 (만원)", min_value=0, step=500,
+                           value=-(-reading.total_won // MAN) if reading else link_num("debt"))
+    debt_unknown = c2.checkbox("모름", value=reading is None and "debt" not in link, help="등기부등본 을구의 채권최고액. 모르면 0원으로 계산하고 경고해요.")
     official = st.number_input(
         "공시가격 직접 입력 (만원, 선택)", min_value=0, value=link_num("off"), step=500,
         help="부동산공시가격알리미(realtyprice.kr)에서 확인할 수 있어요. 비우면 자동 조회를 시도해요.")
@@ -142,13 +160,16 @@ elif submitted and address is not None:
     st.session_state["senior_debt"] = senior or 0
     d = cached_diagnose(address, dong.strip(), ho.strip(), float(area), int(deposit) * MAN, int(rent) * MAN,
                         senior, profile,
-                        manual_official_won=int(official) * MAN or None, today=date.today())
+                        manual_official_won=int(official) * MAN or None, today=date.today(),
+                        registry_flags=tuple(reading.flags) if reading
+                        else tuple(filter(None, link.get("reg", "").split(","))) if from_link else ())
     if d.errors:  # 일시적 실패를 1시간 동안 재사용하지 않도록
         cached_diagnose.clear()
     if not from_link:  # 새로 진단하면 링크를 갱신하고 체크리스트는 처음부터
         st.query_params.from_dict({k: v for k, v in {
             "q": keyword.strip(), "pnu": address.pnu, "dong": dong.strip(), "ho": ho.strip(), "area": f"{area:g}",
             "dep": deposit, "rent": rent, "debt": None if senior is None else debt, "off": official or None,
+            "reg": ",".join(reading.flags) if reading and reading.flags else None,
         }.items() if v not in (None, "")})
     st.session_state["diagnosis"] = d
 

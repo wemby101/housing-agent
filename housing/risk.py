@@ -33,8 +33,15 @@ def man(won: int) -> str:
 
 def assess_risk(deposit_won: int, senior_debt_won: int | None, official: OfficialPrice | None,
                 market: MarketEstimate | None, building: BuildingInfo | None,
-                market_failed: bool = False, building_failed: bool = False) -> RiskReport:
+                market_failed: bool = False, building_failed: bool = False,
+                registry_flags: tuple[str, ...] = ()) -> RiskReport:
     signals: list[Signal] = []
+    if registry_flags:
+        names = "·".join(registry_flags)
+        signals.append(Signal(
+            "REGISTRY_FLAGS", "danger", f"등기부에 {names} 기록이 있어요",
+            "압류·가압류·가처분·경매·신탁이 걸린 집은 보증금을 돌려받지 못할 위험이 커요. 계약 전에 말소 여부를 반드시 확인하세요.",
+            "등기부등본 (업로드한 PDF)"))
     debt = senior_debt_won or 0
     limit = ratio = target = None
 

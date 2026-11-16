@@ -159,3 +159,30 @@ def test_checklist_progress_is_kept_in_link(calls):
     reopened.query_params.update(at.query_params)
     reopened.run()
     assert next(c for c in reopened.checkbox if c.label == box.label).value is True
+
+
+def test_registry_pdf_fills_debt_and_flags(calls, monkeypatch):
+    import housing.registry
+    from housing.registry import Lien, RegistryReading
+    reading = RegistryReading([Lien(2, "근저당권", 84_000_000), Lien(4, "전세권", 50_000_000)], ["압류"])
+    monkeypatch.setattr(housing.registry, "read_registry_pdf", lambda data: reading)
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.text_input[0].input("봉천동 1-70").run()
+    at.selectbox[0].select(BONGCHEON).run()
+    at.file_uploader[0].set_value(("등기부.pdf", b"%PDF-fake", "application/pdf")).run()
+    assert any("13,400만" in s.value for s in at.success)
+    at.number_input[DEPOSIT].set_value(10000)
+    at.button[0].click().run()
+    args, kwargs = calls[-1]
+    assert args[6] == 134_000_000 and kwargs["registry_flags"] == ("압류",)
+
+
+def test_link_flags_apply_only_when_opening_link(calls):
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.query_params.update({**LINK, "reg": "압류"})
+    at.run()
+    assert calls[-1][1]["registry_flags"] == ("압류",)
+    at.number_input[DEPOSIT].set_value(30000)
+    at.button[0].click().run()
+    assert calls[-1][1]["registry_flags"] == ()

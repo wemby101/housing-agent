@@ -66,3 +66,8 @@ def test_building_failure_passes_flag(sources, monkeypatch):
     monkeypatch.setattr(pipeline, "get_building", boom)
     d = run(manual_official_won=160_000_000)
     assert "building" in d.errors and "NO_BUILDING" not in {s.code for s in d.risk.signals}
+
+
+def test_registry_flags_reach_risk(sources):
+    d = run(manual_official_won=160_000_000, registry_flags=("가압류",))
+    assert "REGISTRY_FLAGS" in {s.code for s in d.risk.signals}

@@ -111,3 +111,11 @@ def test_building_not_found_is_caution():
 
 def test_building_lookup_failure_has_no_not_found_signal():
     assert "NO_BUILDING" not in codes(assess_risk(50_000_000, 0, None, None, None, building_failed=True))
+
+
+def test_registry_flags_are_danger_first():
+    r = assess_risk(50_000_000, 0, OfficialPrice(200_000_000, 2026, "x"), market(300_000_000), residential,
+                    registry_flags=("압류", "신탁"))
+    assert r.signals[0].code == "REGISTRY_FLAGS" and r.signals[0].level == "danger"
+    assert "압류" in r.signals[0].title and "신탁" in r.signals[0].title
+    assert r.headline == r.signals[0].title
