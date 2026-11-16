@@ -22,7 +22,8 @@
   "checked_date": "2026-11-16",
   "unverifiable_conditions": [],
   "min_deposit_won": null,
-  "max_income_won_newlywed": 75000000
+  "max_income_won_newlywed": 75000000,
+  "regions": []
  },
  {
   "id": "monthly_rent",
@@ -47,7 +48,10 @@
    "원가구 소득 중위 100% 이하"
   ],
   "min_deposit_won": null,
-  "max_income_won_newlywed": null
+  "max_income_won_newlywed": null,
+  "regions": [
+   "11"
+  ]
  },
  {
   "id": "any_loan",
@@ -70,6 +74,7 @@
   "checked_date": "2026-11-16",
   "unverifiable_conditions": [],
   "min_deposit_won": null,
-  "max_income_won_newlywed": null
+  "max_income_won_newlywed": null,
+  "regions": []
  }
 ]

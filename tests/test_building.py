@@ -103,3 +103,23 @@ def test_xml_result_code_error_raises(monkeypatch):
     _serve(monkeypatch, "<response><header><resultCode>99</resultCode><resultMsg>LIMITED</resultMsg></header></response>")
     with pytest.raises(DataSourceError, match="LIMITED"):
         call_datagokr("https://example", {})
+
+
+def test_complex_prefers_residential_main_building(monkeypatch):
+    """한 지번에 오피스텔 동과 아파트 동이 같이 있으면 공동주택 동을 본다 (공시가격이 있는 집이라 공동주택)."""
+    body = load_fixture("bldg_title_bongcheon_1_70.json")
+    apt = body["response"]["body"]["items"]["item"][0]
+    office = {**apt, "mainPurpsCdNm": "업무시설", "etcPurps": "오피스텔", "useAprDay": "20090101"}
+    apt = {**apt, "mainPurpsCdNm": "공동주택", "etcPurps": "아파트", "useAprDay": "20100301"}
+    body["response"]["body"]["items"]["item"] = [office, apt]
+    _serve(monkeypatch, json.dumps(body))
+    b = get_building(BONGCHEON)
+    assert (b.etc_purpose, b.approval_year, b.is_residential) == ("아파트", 2010, True)
+
+
+def test_building_request_asks_first_page_explicitly(monkeypatch):
+    """pageNo 없이 부르면 API가 1개 동만 돌려준다 (송도 28개 동 지번에서 확인)."""
+    get = fake_get("bldg_title_bongcheon_1_70.json")
+    monkeypatch.setattr(datagokr.requests, "get", get)
+    get_building(BONGCHEON)
+    assert get.calls[0][1]["pageNo"] == 1 and get.calls[0][1]["numOfRows"] == 100

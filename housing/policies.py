@@ -68,9 +68,12 @@ def _check(profile: Profile, p: dict) -> tuple[list[str], list[str]] | None:
     return reasons, unverified
 
 
-def match_policies(profile: Profile, policies: list[dict]) -> list[PolicyMatch]:
+def match_policies(profile: Profile, policies: list[dict], region: str | None = None) -> list[PolicyMatch]:
+    """region은 시도 코드 앞 2자리(11 서울, 41 경기, 28 인천). regions가 빈 정책은 전국, region이 None이면 거르지 않는다."""
     matches = []
     for p in policies:
+        if region is not None and p.get("regions") and region not in p["regions"]:
+            continue
         checked = _check(profile, p)
         if checked is None:
             continue

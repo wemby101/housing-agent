@@ -1,144 +1,246 @@
 [
-  {
-    "id": "guarantee_fee",
-    "name": "전세보증금 반환보증 보증료 지원 (국토부·서울시)",
-    "contract_types": [
-      "any"
-    ],
-    "min_age": 19,
-    "max_age": 39,
-    "max_income_won": 50000000,
-    "max_income_won_married": 60000000,
-    "max_deposit_won": 300000000,
-    "max_monthly_rent_won": null,
-    "homeless_required": true,
-    "benefit_max_won": 400000,
-    "benefit_text": "이미 낸 전세보증금 반환보증 보증료 전액 환급, 최대 40만 원 (기혼 부부합산 기준은 보증료의 90%, 최대 40만 원). 전세뿐 아니라 반전세·보증부 월세도 가능. 먼저 HUG 등 반환보증에 가입한 뒤 신청해요. 서울 주민등록 필요",
-    "documents": [],
-    "apply_url": "https://www.gov.kr/portal/rcvfvrSvc/dtlEx/161300000103",
-    "source_url": "https://housing.seoul.go.kr/site/main/content/sh01_061030",
-    "checked_date": "2026-11-16",
-    "unverifiable_conditions": [],
-    "min_deposit_won": 1,
-    "max_income_won_newlywed": 75000000
-  },
-  {
-    "id": "seoul_youth_monthly_rent",
-    "name": "서울시 청년월세지원",
-    "contract_types": [
-      "monthly"
-    ],
-    "min_age": 19,
-    "max_age": 39,
-    "max_income_won": null,
-    "max_income_won_married": null,
-    "max_deposit_won": 80000000,
-    "max_monthly_rent_won": 600000,
-    "homeless_required": true,
-    "benefit_max_won": 2400000,
-    "benefit_text": "월 최대 20만 원, 최대 12개월 (240만 원, 생애 1회). 2026년 모집(5.6~5.19)은 마감 — 2027년 공고 확인",
-    "documents": [
-      "확정일자가 날인된 임대차계약서 사본",
-      "최근 3개월 월세 이체확인증",
-      "가족관계증명서(상세)",
-      "행정정보 공동이용 사전동의서"
-    ],
-    "apply_url": "https://housing.seoul.go.kr",
-    "source_url": "https://housing.seoul.go.kr/site/main/file/download/uu/da39f9221c574254a6c8bc52327495f5",
-    "checked_date": "2026-11-16",
-    "unverifiable_conditions": [
-      "가구 월평균 소득이 기준 중위소득 48% 초과~150% 이하 (청년 1인 가구 1~3구간은 120% 이하)",
-      "본인 일반재산 1억 3천만 원 이하, 자동차 2,500만 원 미만",
-      "공공임대주택 거주자는 신청 불가",
-      "월세 60만 원 초과여도 보증금 월세 환산액 + 월세 합계 90만 원 이하면 가능"
-    ],
-    "min_deposit_won": null,
-    "max_income_won_newlywed": null
-  },
-  {
-    "id": "molit_youth_monthly_rent",
-    "name": "청년월세 지원사업 (국토부)",
-    "contract_types": [
-      "monthly"
-    ],
-    "min_age": 19,
-    "max_age": 34,
-    "max_income_won": null,
-    "max_income_won_married": null,
-    "max_deposit_won": null,
-    "max_monthly_rent_won": null,
-    "homeless_required": true,
-    "benefit_max_won": 4800000,
-    "benefit_text": "실제 내는 월세 범위에서 월 최대 20만 원, 최장 24개월 (생애 1회). 2026년 신규 신청(3.30~5.29)은 마감 — 다음 정기 신청기간 확인",
-    "documents": [],
-    "apply_url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004661",
-    "source_url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004661",
-    "checked_date": "2026-11-16",
-    "unverifiable_conditions": [
-      "부모님과 따로 사는 무주택 청년",
-      "청년가구 소득 기준 중위소득 60% 이하·재산 1.22억 원 이하",
-      "원가구(부모 포함) 소득 기준 중위소득 100% 이하·재산 4.7억 원 이하",
-      "보증금·월세 상한은 복지로 공고문에서 확인"
-    ],
-    "min_deposit_won": null,
-    "max_income_won_newlywed": null
-  },
-  {
-    "id": "seoul_youth_deposit_interest",
-    "name": "서울시 청년 임차보증금 이자지원",
-    "contract_types": [
-      "any"
-    ],
-    "min_age": 19,
-    "max_age": 39,
-    "max_income_won": 50000000,
-    "max_income_won_married": 60000000,
-    "max_deposit_won": 300000000,
-    "max_monthly_rent_won": 900000,
-    "homeless_required": true,
-    "benefit_max_won": null,
-    "benefit_text": "임차보증금 대출 최대 2억 원(보증금의 90% 이내), 서울시가 이자를 최대 연 3.0% 지원 (생애 1회)",
-    "documents": [],
-    "apply_url": "https://housing.seoul.go.kr/site/main/content/sh01_040901",
-    "source_url": "https://housing.seoul.go.kr/site/main/file/download/uu/0446e94f40c545dc85ed15a133939e86",
-    "checked_date": "2026-11-16",
-    "unverifiable_conditions": [
-      "기혼이면 배우자도 무주택",
-      "개인별 대출 한도는 소득에 따라 달라요 (하나은행 서울 영업점 문의)"
-    ],
-    "min_deposit_won": null,
-    "max_income_won_newlywed": null
-  },
-  {
-    "id": "seoul_youth_brokerage_moving",
-    "name": "서울시 청년 부동산 중개보수 및 이사비 지원",
-    "contract_types": [
-      "any"
-    ],
-    "min_age": 19,
-    "max_age": 39,
-    "max_income_won": null,
-    "max_income_won_married": null,
-    "max_deposit_won": null,
-    "max_monthly_rent_won": null,
-    "homeless_required": true,
-    "benefit_max_won": 400000,
-    "benefit_text": "중개보수·이사비 실비 최대 40만 원 (생애 1회). 2026년 하반기 모집(8.18~8.31)은 마감 — 2027년 공고 확인",
-    "documents": [
-      "임대차계약서 사본",
-      "중개보수·이사비 지출 증빙서류",
-      "통장 사본"
-    ],
-    "apply_url": "https://youth.seoul.go.kr",
-    "source_url": "https://mediahub.seoul.go.kr/archives/2019098",
-    "checked_date": "2026-11-16",
-    "unverifiable_conditions": [
-      "거래금액(보증금 + 월세 × 100) 2억 원 이하",
-      "가구 소득 기준 중위소득 150% 이하",
-      "2024년 1월 1일 이후 서울로 전입했거나 서울 안에서 이사",
-      "부모 소유 주택 임차, 생계·의료·주거급여 수급자는 제외"
-    ],
-    "min_deposit_won": null,
-    "max_income_won_newlywed": null
-  }
+ {
+  "id": "guarantee_fee",
+  "name": "전세보증금반환보증 보증료 지원 (국토부·지자체)",
+  "contract_types": [
+   "any"
+  ],
+  "min_age": 19,
+  "max_age": 39,
+  "max_income_won": 50000000,
+  "max_income_won_married": 60000000,
+  "max_deposit_won": 300000000,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": 400000,
+  "benefit_text": "이미 낸 전세보증금 반환보증 보증료 전액 환급, 최대 40만 원 (기혼 부부합산 기준은 보증료의 90%, 최대 40만 원). 전세뿐 아니라 반전세·보증부 월세도 가능. 먼저 HUG 등 반환보증에 가입한 뒤 신청해요. 주소지 시·군·구청이나 정부24에서 신청",
+  "documents": [],
+  "apply_url": "https://www.gov.kr/portal/rcvfvrSvc/dtlEx/161300000103",
+  "source_url": "https://housing.seoul.go.kr/site/main/content/sh01_061030",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [],
+  "min_deposit_won": 1,
+  "max_income_won_newlywed": 75000000,
+  "regions": []
+ },
+ {
+  "id": "seoul_youth_monthly_rent",
+  "name": "서울시 청년월세지원",
+  "contract_types": [
+   "monthly"
+  ],
+  "min_age": 19,
+  "max_age": 39,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": 80000000,
+  "max_monthly_rent_won": 600000,
+  "homeless_required": true,
+  "benefit_max_won": 2400000,
+  "benefit_text": "월 최대 20만 원, 최대 12개월 (240만 원, 생애 1회). 2026년 모집(5.6~5.19)은 마감 — 2027년 공고 확인",
+  "documents": [
+   "확정일자가 날인된 임대차계약서 사본",
+   "최근 3개월 월세 이체확인증",
+   "가족관계증명서(상세)",
+   "행정정보 공동이용 사전동의서"
+  ],
+  "apply_url": "https://housing.seoul.go.kr",
+  "source_url": "https://housing.seoul.go.kr/site/main/file/download/uu/da39f9221c574254a6c8bc52327495f5",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "가구 월평균 소득이 기준 중위소득 48% 초과~150% 이하 (청년 1인 가구 1~3구간은 120% 이하)",
+   "본인 일반재산 1억 3천만 원 이하, 자동차 2,500만 원 미만",
+   "공공임대주택 거주자는 신청 불가",
+   "월세 60만 원 초과여도 보증금 월세 환산액 + 월세 합계 90만 원 이하면 가능"
+  ],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null,
+  "regions": [
+   "11"
+  ]
+ },
+ {
+  "id": "molit_youth_monthly_rent",
+  "name": "청년월세 지원사업 (국토부)",
+  "contract_types": [
+   "monthly"
+  ],
+  "min_age": 19,
+  "max_age": 34,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": null,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": 4800000,
+  "benefit_text": "실제 내는 월세 범위에서 월 최대 20만 원, 최장 24개월 (생애 1회). 2026년 신규 신청(3.30~5.29)은 마감 — 다음 정기 신청기간 확인",
+  "documents": [],
+  "apply_url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004661",
+  "source_url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004661",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "부모님과 따로 사는 무주택 청년",
+   "청년가구 소득 기준 중위소득 60% 이하·재산 1.22억 원 이하",
+   "원가구(부모 포함) 소득 기준 중위소득 100% 이하·재산 4.7억 원 이하",
+   "보증금·월세 상한은 복지로 공고문에서 확인"
+  ],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null,
+  "regions": []
+ },
+ {
+  "id": "seoul_youth_deposit_interest",
+  "name": "서울시 청년 임차보증금 이자지원",
+  "contract_types": [
+   "any"
+  ],
+  "min_age": 19,
+  "max_age": 39,
+  "max_income_won": 50000000,
+  "max_income_won_married": 60000000,
+  "max_deposit_won": 300000000,
+  "max_monthly_rent_won": 900000,
+  "homeless_required": true,
+  "benefit_max_won": null,
+  "benefit_text": "임차보증금 대출 최대 2억 원(보증금의 90% 이내), 서울시가 이자를 최대 연 3.0% 지원 (생애 1회)",
+  "documents": [],
+  "apply_url": "https://housing.seoul.go.kr/site/main/content/sh01_040901",
+  "source_url": "https://housing.seoul.go.kr/site/main/file/download/uu/0446e94f40c545dc85ed15a133939e86",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "기혼이면 배우자도 무주택",
+   "개인별 대출 한도는 소득에 따라 달라요 (하나은행 서울 영업점 문의)"
+  ],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null,
+  "regions": [
+   "11"
+  ]
+ },
+ {
+  "id": "seoul_youth_brokerage_moving",
+  "name": "서울시 청년 부동산 중개보수 및 이사비 지원",
+  "contract_types": [
+   "any"
+  ],
+  "min_age": 19,
+  "max_age": 39,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": null,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": 400000,
+  "benefit_text": "중개보수·이사비 실비 최대 40만 원 (생애 1회). 2026년 하반기 모집(8.18~8.31)은 마감 — 2027년 공고 확인",
+  "documents": [
+   "임대차계약서 사본",
+   "중개보수·이사비 지출 증빙서류",
+   "통장 사본"
+  ],
+  "apply_url": "https://youth.seoul.go.kr",
+  "source_url": "https://mediahub.seoul.go.kr/archives/2019098",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "거래금액(보증금 + 월세 × 100) 2억 원 이하",
+   "가구 소득 기준 중위소득 150% 이하",
+   "2024년 1월 1일 이후 서울로 전입했거나 서울 안에서 이사",
+   "부모 소유 주택 임차, 생계·의료·주거급여 수급자는 제외"
+  ],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null,
+  "regions": [
+   "11"
+  ]
+ },
+ {
+  "id": "incheon_youth_monthly_rent",
+  "name": "인천형 청년월세 지원 (35~39세)",
+  "contract_types": [
+   "monthly"
+  ],
+  "min_age": 35,
+  "max_age": 39,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": null,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": 4800000,
+  "benefit_text": "실제 내는 월세 범위에서 월 최대 20만 원, 최대 24개월. 19~34세는 국토부 청년월세 지원으로 신청해요. 2026년 신청(3.30~5.29)은 마감 — 다음 공고 확인",
+  "documents": [],
+  "apply_url": "https://youth.incheon.go.kr/dwelling/monthly.jsp",
+  "source_url": "https://youth.incheon.go.kr/dwelling/monthly.jsp",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "부모님과 따로 사는 무주택 청년, 인천 전입신고 필수",
+   "청년가구 소득 기준 중위소득 60% 이하·재산 1.22억 원 이하",
+   "원가구(부모 포함) 소득 기준 중위소득 100% 이하·재산 4.7억 원 이하"
+  ],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null,
+  "regions": [
+   "28"
+  ]
+ },
+ {
+  "id": "incheon_youth_deposit_interest",
+  "name": "인천시 청년 주택임차보증금 이자 지원",
+  "contract_types": [
+   "any"
+  ],
+  "min_age": 19,
+  "max_age": 39,
+  "max_income_won": 60000000,
+  "max_income_won_married": 80000000,
+  "max_deposit_won": 250000000,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": null,
+  "benefit_text": "임차보증금 대출 최대 1억 원(보증금의 90% 이내), 인천시가 이자를 연 3.0% 지원(자녀 1명 이상이면 3.5%), 2년 만기(1회 연장, 최장 4년). 2026년 모집(5.11~5.29, 60명)은 마감 — 2027년 공고 확인",
+  "documents": [],
+  "apply_url": "https://youth.incheon.go.kr/dwelling/interest.jsp",
+  "source_url": "https://www.incheon.go.kr/IC010101/view?nttNo=2045823",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "보증부 월세는 월세를 보증금으로 환산해 합한 금액이 2억 5천만 원 이하",
+   "전용면적 85㎡ 이하 주택(주거용 오피스텔 포함)",
+   "무주택 세대주 (부부·자녀 포함 무주택)",
+   "주택도시기금 대출(버팀목 등) 이용 중이거나 주거급여 수급자면 제외",
+   "선정 후 대출추천서를 받고 새로 계약하는 경우만 지원"
+  ],
+  "min_deposit_won": 1,
+  "max_income_won_newlywed": null,
+  "regions": [
+   "28"
+  ]
+ },
+ {
+  "id": "gyeonggi_city_youth_interest",
+  "name": "경기도 시·군 청년 전월세 보증금 대출이자 지원",
+  "contract_types": [
+   "any"
+  ],
+  "min_age": 19,
+  "max_age": 39,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": null,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": null,
+  "benefit_text": "경기도는 시·군마다 청년 전월세 보증금 대출이자 지원 사업이 따로 있어요. 예) 안양시 대출잔액의 1%(최대 100만 원), 포천시 2%(가구당 연 최대 200만 원). 경기주거복지포털에서 내 시·군 사업을 확인하세요",
+  "documents": [],
+  "apply_url": "https://housing.gg.go.kr",
+  "source_url": "https://housing.gg.go.kr/contents/207/view",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "시·군마다 나이·소득·보증금 기준과 지원 금액이 달라요",
+   "내가 사는 시·군에 사업이 있는지, 지금 모집 중인지 확인"
+  ],
+  "min_deposit_won": 1,
+  "max_income_won_newlywed": null,
+  "regions": [
+   "41"
+  ]
+ }
 ]

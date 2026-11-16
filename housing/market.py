@@ -1,7 +1,7 @@
-"""연립다세대 매매 실거래가 → 추정 매매시세 (㎡당 가격 중앙값 × 면적)."""
+"""매매 실거래가(연립다세대·아파트) → 추정 매매시세 (㎡당 가격 중앙값 × 면적)."""
 import json
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from statistics import median
@@ -10,7 +10,10 @@ from housing.address import Address
 from housing.datagokr import call_datagokr, items_of
 from housing.errors import DataSourceError
 
-TRADE_URL = "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade"
+TRADE_URLS = {  # 두 API는 응답 필드가 같다. 활용신청은 따로 해야 한다
+    "rh": "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade",
+    "apt": "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade",
+}
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
 MONTHS = 24
 PAGE_SIZE = 1000
@@ -32,6 +35,7 @@ class MarketEstimate:
     comp_count: int
     basis: str  # "same_jibun" | "same_dong"
     months: int
+    kind: str = "rh"  # "rh" 연립다세대 | "apt" 아파트
 
 
 def parse_trade(item: dict) -> Trade | None:
@@ -53,8 +57,8 @@ def _ym_shift(d: date, back: int) -> str:
     return f"{n // 12:04d}{n % 12 + 1:02d}"
 
 
-def fetch_trades(lawd_cd: str, ym: str) -> list[Trade]:
-    cache = CACHE_DIR / f"rh_{lawd_cd}_{ym}.json"
+def fetch_trades(lawd_cd: str, ym: str, kind: str = "rh") -> list[Trade]:
+    cache = CACHE_DIR / f"{kind}_{lawd_cd}_{ym}.json"
     try:
         items = json.loads(cache.read_text(encoding="utf-8"))
     except (OSError, ValueError):  # 없거나 깨진 캐시는 다시 받는다
@@ -62,7 +66,7 @@ def fetch_trades(lawd_cd: str, ym: str) -> list[Trade]:
     if items is None:
         items, page = [], 1
         while True:
-            body = call_datagokr(TRADE_URL, {"LAWD_CD": lawd_cd, "DEAL_YMD": ym, "numOfRows": PAGE_SIZE, "pageNo": page})
+            body = call_datagokr(TRADE_URLS[kind], {"LAWD_CD": lawd_cd, "DEAL_YMD": ym, "numOfRows": PAGE_SIZE, "pageNo": page})
             batch = items_of(body)
             items += batch
             if not batch or len(items) >= int(body.get("totalCount") or 0):
@@ -101,10 +105,11 @@ def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, bu
     return build(similar, "same_dong") if len(similar) >= 2 else None
 
 
-def get_market_price(addr: Address, area_m2: float, build_year: int | None, today: date) -> MarketEstimate | None:
+def get_market_price(addr: Address, area_m2: float, build_year: int | None, today: date,
+                     kind: str = "rh") -> MarketEstimate | None:
     def one(ym: str) -> list[Trade] | DataSourceError:
         try:
-            return fetch_trades(addr.sigungu_cd, ym)
+            return fetch_trades(addr.sigungu_cd, ym, kind)
         except DataSourceError as e:
             return e
 
@@ -113,4 +118,5 @@ def get_market_price(addr: Address, area_m2: float, build_year: int | None, toda
     months = [r for r in results if not isinstance(r, DataSourceError)]
     if not months:  # 전부 실패(키 미활성 등)면 오류로 알린다; 일부 달만 실패하면 나머지로 추정
         raise next(r for r in results if isinstance(r, DataSourceError))
-    return estimate_market_price([tr for m in months for tr in m], addr, area_m2, build_year)
+    e = estimate_market_price([tr for m in months for tr in m], addr, area_m2, build_year)
+    return replace(e, kind=kind) if e else None

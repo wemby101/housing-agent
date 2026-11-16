@@ -75,3 +75,41 @@ def test_list_units_empty_when_no_rows(monkeypatch):
     from housing.official_price import list_units
     monkeypatch.setattr(official_price.requests, "get", fake_get("vworld_no_rows.json"))
     assert list_units(BONGCHEON) == []
+
+
+def _vworld(pages_by_year):
+    """stdrYear·pageNo별 행을 돌려주는 가짜 브이월드. pages_by_year = {"2026": [[행...], [행...]]}."""
+    import json
+    from tests.helpers import FakeResponse
+    calls = []
+
+    def get(url, params, timeout):
+        calls.append(dict(params))
+        pages = pages_by_year.get(params.get("stdrYear"), [])
+        total = sum(len(p) for p in pages)
+        field = pages[params["pageNo"] - 1] if params["pageNo"] <= len(pages) else []
+        body = {"apartHousingPrices": {"totalCount": str(total), "resultCode": "", "field": field}} if total else {"response": {"totalCount": "0"}}
+        return FakeResponse(json.dumps(body))
+    get.calls = calls
+    return get
+
+
+def _row(year, dong, ho):
+    return {"stdrYear": year, "dongNm": dong, "hoNm": ho, "prvuseAr": "84.9", "pblntfPc": "500000000"}
+
+
+def test_list_units_reads_every_page_of_this_year(monkeypatch):
+    from housing.official_price import list_units
+    get = _vworld({"2026": [[_row("2026", "1", str(100 + i)) for i in range(1000)], [_row("2026", "2", "101")]]})
+    monkeypatch.setattr(official_price.requests, "get", get)
+    units = list_units(BONGCHEON, year=2026)
+    assert len(units) == 1001 and units[-1].dong == "2"
+    assert [c["pageNo"] for c in get.calls] == [1, 2] and get.calls[0]["stdrYear"] == "2026"
+
+
+def test_list_units_falls_back_to_last_year_before_announcement(monkeypatch):
+    from housing.official_price import list_units
+    get = _vworld({"2025": [[_row("2025", "1", "101")]]})  # 올해 공시가격 발표(4월 말) 전
+    monkeypatch.setattr(official_price.requests, "get", get)
+    assert [u.ho for u in list_units(BONGCHEON, year=2026)] == ["101"]
+    assert [c["stdrYear"] for c in get.calls] == ["2026", "2025"]

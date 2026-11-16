@@ -76,3 +76,27 @@ def test_semi_jeonse_gets_guarantee_fee_in_real_table():
 def test_zero_deposit_never_gets_guarantee_fee():
     p = Profile(**{**JEONSE, "deposit_won": 0, "monthly_rent_won": 500_000})
     assert "guarantee_fee" not in ids(match_policies(p, load_policies()))
+
+
+def test_region_only_policy_hidden_outside_its_region():
+    p = Profile(**{**JEONSE, "deposit_won": 10_000_000, "monthly_rent_won": 500_000})
+    assert "monthly_rent" in ids(match_policies(p, sample, region="11"))
+    assert "monthly_rent" not in ids(match_policies(p, sample, region="41"))
+    assert "any_loan" in ids(match_policies(p, sample, region="41"))  # regions가 비어 있으면 전국
+
+
+def test_real_table_regions_by_city():
+    real = load_policies()
+    seoul = ids(match_policies(Profile(**JEONSE), real, region="11"))
+    incheon = ids(match_policies(Profile(**JEONSE), real, region="28"))
+    gyeonggi = ids(match_policies(Profile(**JEONSE), real, region="41"))
+    assert "guarantee_fee" in seoul & incheon & gyeonggi  # 보증료 지원은 전국 사업
+    assert "seoul_youth_deposit_interest" in seoul and "seoul_youth_deposit_interest" not in incheon | gyeonggi
+    assert "incheon_youth_deposit_interest" in incheon and "incheon_youth_deposit_interest" not in seoul | gyeonggi
+    assert "gyeonggi_city_youth_interest" in gyeonggi
+
+
+def test_incheon_35_to_39_gets_incheon_rent_not_molit():
+    p = Profile(**{**JEONSE, "age": 37, "deposit_won": 10_000_000, "monthly_rent_won": 500_000})
+    got = ids(match_policies(p, load_policies(), region="28"))
+    assert "incheon_youth_monthly_rent" in got and "molit_youth_monthly_rent" not in got

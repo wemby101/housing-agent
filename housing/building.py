@@ -16,14 +16,20 @@ class BuildingInfo:
     approval_year: int | None
     is_residential: bool
 
+    @property
+    def is_apartment(self) -> bool:
+        return "아파트" in self.main_purpose + self.etc_purpose
+
 
 def get_building(addr: Address) -> BuildingInfo | None:
     body = call_datagokr(TITLE_URL, {
         "sigunguCd": addr.sigungu_cd, "bjdongCd": addr.bjdong_cd, "platGbCd": addr.plat_gb_cd,
-        "bun": addr.bun, "ji": addr.ji, "numOfRows": 100,
+        "bun": addr.bun, "ji": addr.ji, "numOfRows": 100, "pageNo": 1,  # pageNo가 없으면 1행만 온다
     })
     rows = items_of(body)
-    row = next((r for r in rows if r.get("mainAtchGbCdNm") == "주건축물"), rows[0] if rows else None)
+    main = [r for r in rows if r.get("mainAtchGbCdNm") == "주건축물"] or rows
+    # shortcut: 한 지번에 여러 동(아파트 단지·주상복합)이면 주택 동을 고른다. 내 호수가 어느 동인지는 보지 않는다
+    row = next((r for r in main if r.get("mainPurpsCdNm") in RESIDENTIAL), main[0] if main else None)
     if row is None:
         return None
     apr = str(row.get("useAprDay") or "")

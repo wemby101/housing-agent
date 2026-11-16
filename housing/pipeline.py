@@ -41,7 +41,8 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
         official = OfficialPrice(manual_official_won, today.year, "사용자 입력")
     else:
         official = attempt("official", get_official_price, address, dong, ho)
-    market = attempt("market", get_market_price, address, area_m2, building.approval_year if building else None, today)
+    kind = "apt" if building and building.is_apartment else "rh"
+    market = attempt("market", get_market_price, address, area_m2, building.approval_year if building else None, today, kind)
     risk = assess_risk(deposit_won, senior_debt_won, official, market, building, market_failed="market" in errors,
                        building_failed="building" in errors, registry_flags=registry_flags)
-    return Diagnosis(address, building, official, market, risk, match_policies(profile, load_policies()), errors)
+    return Diagnosis(address, building, official, market, risk, match_policies(profile, load_policies(), address.sigungu_cd[:2]), errors)

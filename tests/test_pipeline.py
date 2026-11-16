@@ -22,8 +22,9 @@ def sources(monkeypatch):
     monkeypatch.setattr(pipeline, "get_building", lambda addr: BuildingInfo("공동주택", "다세대주택", 9, 2003, True))
     monkeypatch.setattr(pipeline, "get_official_price", boom)
 
-    def market(addr, area, year, today):
+    def market(addr, area, year, today, kind):
         seen["market_args"] = (area, year, today)
+        seen["kind"] = kind
         return MarketEstimate(250_000_000, 3, "same_jibun", 24)
 
     monkeypatch.setattr(pipeline, "get_market_price", market)
@@ -71,3 +72,14 @@ def test_building_failure_passes_flag(sources, monkeypatch):
 def test_registry_flags_reach_risk(sources):
     d = run(manual_official_won=160_000_000, registry_flags=("가압류",))
     assert "REGISTRY_FLAGS" in {s.code for s in d.risk.signals}
+
+
+def test_villa_uses_villa_trades(sources):
+    run()
+    assert sources["kind"] == "rh"
+
+
+def test_apartment_uses_apartment_trades(sources, monkeypatch):
+    monkeypatch.setattr(pipeline, "get_building", lambda addr: BuildingInfo("공동주택", "아파트", 300, 2010, True))
+    run()
+    assert sources["kind"] == "apt"

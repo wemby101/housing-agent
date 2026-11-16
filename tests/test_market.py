@@ -51,7 +51,7 @@ def test_fewer_than_two_comps_returns_none():
 
 def test_get_market_price_requests_24_months(monkeypatch):
     asked = []
-    monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym: asked.append((lawd, ym)) or [t(16_000), t(24_000)])
+    monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym, kind: asked.append((lawd, ym)) or [t(16_000), t(24_000)])
     e = get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16))
     assert len(asked) == 24 and min(asked) == ("11620", "202412") and max(asked) == ("11620", "202611")
     assert e.price_won == 200_000_000
@@ -93,7 +93,7 @@ def test_corrupt_cache_is_refetched(monkeypatch, tmp_path):
 def test_one_failed_month_does_not_drop_the_rest(monkeypatch):
     from housing.errors import DataSourceError
 
-    def fetch(lawd, ym):
+    def fetch(lawd, ym, kind):
         if ym == "202605":
             raise DataSourceError("일시 오류")
         return [t(16_000), t(24_000)] if ym == "202611" else []
@@ -105,9 +105,24 @@ def test_one_failed_month_does_not_drop_the_rest(monkeypatch):
 def test_all_months_failing_raises(monkeypatch):
     from housing.errors import DataSourceError
 
-    def fetch(lawd, ym):
+    def fetch(lawd, ym, kind):
         raise DataSourceError("HTTP 403")
 
     monkeypatch.setattr(market, "fetch_trades", fetch)
     with pytest.raises(DataSourceError, match="403"):
         get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16))
+
+
+def test_apartment_trades_use_apt_api_and_own_cache(monkeypatch, tmp_path):
+    monkeypatch.setattr(market, "CACHE_DIR", tmp_path)
+    urls = []
+    monkeypatch.setattr(market, "call_datagokr", lambda url, params: urls.append(url) or {"totalCount": 1, "items": {"item": [ITEM]}})
+    assert len(fetch_trades("11620", "202601", "apt")) == 1
+    assert "RTMSDataSvcAptTrade" in urls[0] and (tmp_path / "apt_11620_202601.json").exists()
+
+
+def test_get_market_price_passes_kind(monkeypatch):
+    kinds = []
+    monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym, kind: kinds.append(kind) or [t(16_000), t(24_000)])
+    e = get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16), kind="apt")
+    assert set(kinds) == {"apt"} and e.kind == "apt"

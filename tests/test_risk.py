@@ -119,3 +119,17 @@ def test_registry_flags_are_danger_first():
     assert r.signals[0].code == "REGISTRY_FLAGS" and r.signals[0].level == "danger"
     assert "압류" in r.signals[0].title and "신탁" in r.signals[0].title
     assert r.headline == r.signals[0].title
+
+
+def test_apartment_ratio_cites_apartment_trades():
+    m = MarketEstimate(250_000_000, 3, "same_jibun", 24, kind="apt")
+    s = next(s for s in assess_risk(220_000_000, 0, None, m, residential).signals if s.code == "HIGH_RATIO")
+    assert "아파트 매매 실거래가" in s.source
+
+
+def test_apartment_official_limit_is_only_caution():
+    """아파트는 HUG가 KB·부동산테크 시세를 먼저 쓰므로 공시가격 126% 초과만으로 '막힘'이라 하지 않는다."""
+    apt = BuildingInfo("공동주택", "아파트", 300, 2010, True)
+    s = next(s for s in assess_risk(220_000_000, 0, OfficialPrice(160_000_000, 2026, "x"), None, apt).signals
+             if s.code == "GUARANTEE_BLOCKED")
+    assert s.level == "caution" and "KB" in s.detail and s.title.startswith("공시가격 기준")
