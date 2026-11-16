@@ -11,6 +11,7 @@ from housing.risk import man
 
 DISCLAIMER = "참고용 진단입니다. 계약 전 공인중개사·HUG(1566-9009) 상담으로 확인하세요."
 MAN = 10_000
+SEARCH_LIMIT = 20
 ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "market": "실거래가 시세"}
 
 st.set_page_config(page_title="청년 집 구하기 진단", page_icon="🏠")
@@ -20,7 +21,7 @@ st.caption("계약 전에 이 집의 위험 신호와 내가 받을 수 있는 �
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def cached_search(keyword):
-    return search_address(keyword)
+    return search_address(keyword, limit=SEARCH_LIMIT)
 
 
 @st.cache_data(ttl=3600, show_spinner="공공데이터를 조회하고 있어요…")
@@ -29,7 +30,7 @@ def cached_diagnose(*args, **kwargs):
 
 
 # 1. 주소
-keyword = st.text_input("집 주소 검색", placeholder="예: 봉천동 1-70, 관악로 123")
+keyword = st.text_input("집 주소 검색", placeholder="예: 봉천동 1-70, 청림3다길 12")
 address = None
 if keyword.strip():
     try:
@@ -46,6 +47,12 @@ if keyword.strip():
             placeholder="주소 선택",
             format_func=lambda a: f"{a.road_addr}" + (f" · {a.building_name}" if a.building_name else ""),
         )
+        if len(results) >= SEARCH_LIMIT:
+            st.caption(f"결과가 많아 {SEARCH_LIMIT}건까지만 보여요. 찾는 집이 없으면 번지·건물명까지 더 자세히 입력해 주세요.")
+
+# 다른 집을 고르면 이전 진단 결과를 숨긴다
+if (d := st.session_state.get("diagnosis")) is not None and address != d.address:
+    del st.session_state["diagnosis"]
 
 # 2. 계약·내 정보
 with st.form("diagnose"):

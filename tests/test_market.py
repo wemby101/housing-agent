@@ -53,7 +53,7 @@ def test_get_market_price_requests_24_months(monkeypatch):
     asked = []
     monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym: asked.append((lawd, ym)) or [t(16_000), t(24_000)])
     e = get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16))
-    assert len(asked) == 24 and asked[0] == ("11620", "202611") and asked[-1] == ("11620", "202412")
+    assert len(asked) == 24 and min(asked) == ("11620", "202412") and max(asked) == ("11620", "202611")
     assert e.price_won == 200_000_000
 
 
@@ -88,3 +88,26 @@ def test_corrupt_cache_is_refetched(monkeypatch, tmp_path):
     (tmp_path / "rh_11620_202601.json").write_text("[{trunc", encoding="utf-8")
     monkeypatch.setattr(market, "call_datagokr", lambda url, params: {"totalCount": 1, "items": {"item": [ITEM]}})
     assert len(fetch_trades("11620", "202601")) == 1
+
+
+def test_one_failed_month_does_not_drop_the_rest(monkeypatch):
+    from housing.errors import DataSourceError
+
+    def fetch(lawd, ym):
+        if ym == "202605":
+            raise DataSourceError("일시 오류")
+        return [t(16_000), t(24_000)] if ym == "202611" else []
+
+    monkeypatch.setattr(market, "fetch_trades", fetch)
+    assert get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16)).price_won == 200_000_000
+
+
+def test_all_months_failing_raises(monkeypatch):
+    from housing.errors import DataSourceError
+
+    def fetch(lawd, ym):
+        raise DataSourceError("HTTP 403")
+
+    monkeypatch.setattr(market, "fetch_trades", fetch)
+    with pytest.raises(DataSourceError, match="403"):
+        get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16))

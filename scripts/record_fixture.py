@@ -15,7 +15,10 @@ from housing.config import get_key
 def main(name: str, url_template: str) -> None:
     names = re.findall(r"\{([A-Z_]+)\}", url_template)
     keys = {n: get_key(n) for n in names}
-    body = requests.get(url_template.format(**keys), timeout=30).text
+    try:
+        body = requests.get(url_template.format(**keys), timeout=30).text
+    except requests.RequestException as e:  # 예외 메시지·traceback에 키가 든 URL이 찍히지 않게
+        sys.exit(f"요청 실패 ({type(e).__name__})")
     if any(k in body for k in keys.values()):
         sys.exit("응답에 키가 들어 있어서 저장하지 않았어요")
     out = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / name

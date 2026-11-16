@@ -60,3 +60,9 @@ def test_official_failure_recorded_without_manual(sources):
 def test_building_year_feeds_market(sources):
     run()
     assert sources["market_args"] == (40.0, 2003, date(2026, 11, 16))
+
+
+def test_building_failure_passes_flag(sources, monkeypatch):
+    monkeypatch.setattr(pipeline, "get_building", boom)
+    d = run(manual_official_won=160_000_000)
+    assert "building" in d.errors and "NO_BUILDING" not in {s.code for s in d.risk.signals}

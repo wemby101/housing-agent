@@ -3,7 +3,7 @@
     "id": "guarantee_fee",
     "name": "전세보증금 반환보증 보증료 지원 (국토부·서울시)",
     "contract_types": [
-      "jeonse"
+      "any"
     ],
     "min_age": 19,
     "max_age": 39,
@@ -13,12 +13,14 @@
     "max_monthly_rent_won": null,
     "homeless_required": true,
     "benefit_max_won": 400000,
-    "benefit_text": "이미 낸 전세보증금 반환보증 보증료 전액 환급, 최대 40만 원 (기혼 부부합산 기준은 보증료의 90%, 최대 40만 원). 먼저 HUG 등 반환보증에 가입한 뒤 신청해요. 서울 주민등록 필요. 신혼부부(혼인신고 7년 이내)는 부부합산 7,500만 원까지 가능",
+    "benefit_text": "이미 낸 전세보증금 반환보증 보증료 전액 환급, 최대 40만 원 (기혼 부부합산 기준은 보증료의 90%, 최대 40만 원). 전세뿐 아니라 반전세·보증부 월세도 가능. 먼저 HUG 등 반환보증에 가입한 뒤 신청해요. 서울 주민등록 필요",
     "documents": [],
     "apply_url": "https://www.gov.kr/portal/rcvfvrSvc/dtlEx/161300000103",
     "source_url": "https://housing.seoul.go.kr/site/main/content/sh01_061030",
     "checked_date": "2026-11-16",
-    "unverifiable_conditions": []
+    "unverifiable_conditions": [],
+    "min_deposit_won": 1,
+    "max_income_won_newlywed": 75000000
   },
   {
     "id": "seoul_youth_monthly_rent",
@@ -49,7 +51,9 @@
       "본인 일반재산 1억 3천만 원 이하, 자동차 2,500만 원 미만",
       "공공임대주택 거주자는 신청 불가",
       "월세 60만 원 초과여도 보증금 월세 환산액 + 월세 합계 90만 원 이하면 가능"
-    ]
+    ],
+    "min_deposit_won": null,
+    "max_income_won_newlywed": null
   },
   {
     "id": "molit_youth_monthly_rent",
@@ -75,7 +79,9 @@
       "청년가구 소득 기준 중위소득 60% 이하·재산 1.22억 원 이하",
       "원가구(부모 포함) 소득 기준 중위소득 100% 이하·재산 4.7억 원 이하",
       "보증금·월세 상한은 복지로 공고문에서 확인"
-    ]
+    ],
+    "min_deposit_won": null,
+    "max_income_won_newlywed": null
   },
   {
     "id": "seoul_youth_deposit_interest",
@@ -99,7 +105,9 @@
     "unverifiable_conditions": [
       "기혼이면 배우자도 무주택",
       "개인별 대출 한도는 소득에 따라 달라요 (하나은행 서울 영업점 문의)"
-    ]
+    ],
+    "min_deposit_won": null,
+    "max_income_won_newlywed": null
   },
   {
     "id": "seoul_youth_brokerage_moving",
@@ -129,6 +137,8 @@
       "가구 소득 기준 중위소득 150% 이하",
       "2024년 1월 1일 이후 서울로 전입했거나 서울 안에서 이사",
       "부모 소유 주택 임차, 생계·의료·주거급여 수급자는 제외"
-    ]
+    ],
+    "min_deposit_won": null,
+    "max_income_won_newlywed": null
   }
 ]

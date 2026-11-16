@@ -59,3 +59,20 @@ def test_real_policy_table_is_well_formed():
 def test_real_table_jeonse_youth_gets_guarantee_fee():
     m = {x.policy["id"]: x for x in match_policies(Profile(**JEONSE), load_policies())}
     assert m["guarantee_fee"].status == "eligible"  # 반환보증 가입은 자격이 아니라 할 일
+
+
+def test_newlywed_income_band_needs_check():
+    m = {x.policy["id"]: x for x in match_policies(Profile(**{**JEONSE, "income_won": 70_000_000, "married": True}), sample)}
+    assert m["guarantee_fee"].status == "check_needed"
+    assert any("신혼부부" in r for r in m["guarantee_fee"].reasons)
+    assert "guarantee_fee" not in ids(match_policies(Profile(**{**JEONSE, "income_won": 80_000_000, "married": True}), sample))
+
+
+def test_semi_jeonse_gets_guarantee_fee_in_real_table():
+    p = Profile(**{**JEONSE, "deposit_won": 200_000_000, "monthly_rent_won": 300_000})
+    assert "guarantee_fee" in ids(match_policies(p, load_policies()))
+
+
+def test_zero_deposit_never_gets_guarantee_fee():
+    p = Profile(**{**JEONSE, "deposit_won": 0, "monthly_rent_won": 500_000})
+    assert "guarantee_fee" not in ids(match_policies(p, load_policies()))

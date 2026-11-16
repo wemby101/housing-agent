@@ -33,12 +33,12 @@ def load_policies(path: str = DEFAULT_PATH) -> list[dict]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def _check(profile: Profile, p: dict) -> list[str] | None:
-    """조건을 모두 충족하면 충족 사유 목록, 하나라도 불충족이면 None. null 조건은 검사하지 않는다."""
+def _check(profile: Profile, p: dict) -> tuple[list[str], list[str]] | None:
+    """조건을 모두 충족하면 (충족 사유, 추가 확인할 조건), 하나라도 불충족이면 None. null 조건은 검사하지 않는다."""
     types = p.get("contract_types") or ["any"]
     if "any" not in types and profile.contract_type not in types:
         return None
-    reasons = []
+    reasons, unverified = [], []
     lo, hi = p.get("min_age"), p.get("max_age")
     if lo is not None or hi is not None:
         if (lo is not None and profile.age < lo) or (hi is not None and profile.age > hi):
@@ -46,9 +46,15 @@ def _check(profile: Profile, p: dict) -> list[str] | None:
         reasons.append(f"나이 {profile.age}세 ({lo or ''}~{hi or ''}세)")
     limit = p.get("max_income_won_married") if profile.married and p.get("max_income_won_married") is not None else p.get("max_income_won")
     if limit is not None:
-        if profile.income_won > limit:
+        newlywed = p.get("max_income_won_newlywed")
+        if profile.married and newlywed is not None and limit < profile.income_won <= newlywed:
+            unverified.append(f"부부 합산 연소득 {man(limit)} 원 초과라 혼인신고 7년 이내 신혼부부({man(newlywed)} 원 이하)만 가능")
+        elif profile.income_won > limit:
             return None
-        reasons.append(f"{'부부 합산 ' if profile.married else ''}연소득 {man(profile.income_won)} 원 ≤ {man(limit)} 원")
+        else:
+            reasons.append(f"{'부부 합산 ' if profile.married else ''}연소득 {man(profile.income_won)} 원 ≤ {man(limit)} 원")
+    if p.get("min_deposit_won") is not None and profile.deposit_won < p["min_deposit_won"]:
+        return None
     for key, value, label in (("max_deposit_won", profile.deposit_won, "보증금"),
                               ("max_monthly_rent_won", profile.monthly_rent_won, "월세")):
         if p.get(key) is not None:
@@ -59,16 +65,17 @@ def _check(profile: Profile, p: dict) -> list[str] | None:
         if not profile.homeless:
             return None
         reasons.append("무주택")
-    return reasons
+    return reasons, unverified
 
 
 def match_policies(profile: Profile, policies: list[dict]) -> list[PolicyMatch]:
     matches = []
     for p in policies:
-        reasons = _check(profile, p)
-        if reasons is None:
+        checked = _check(profile, p)
+        if checked is None:
             continue
-        unverifiable = p.get("unverifiable_conditions") or []
+        reasons, unverified = checked
+        unverifiable = unverified + (p.get("unverifiable_conditions") or [])
         matches.append(PolicyMatch(
             policy=p,
             status="check_needed" if unverifiable else "eligible",

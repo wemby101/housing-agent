@@ -24,7 +24,7 @@ def calls(monkeypatch):
         seen.append((args, kwargs))
         return Diagnosis(BONGCHEON, None, None, None, RiskReport("h", [], None, None, None), [], {"market": "데이터를 가져오지 못했어요"})
 
-    monkeypatch.setattr(housing.address, "search_address", lambda kw: [BONGCHEON])
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
     monkeypatch.setattr(housing.pipeline, "diagnose", fake_diagnose)
     return seen
 
@@ -78,10 +78,31 @@ def test_full_result_renders(monkeypatch):
     prof = Profile(26, 30_000_000, False, True, 220_000_000, 0)
     full = Diagnosis(BONGCHEON, bld, official, mkt, assess_risk(220_000_000, 50_000_000, official, mkt, bld),
                      match_policies(prof, load_policies()), {})
-    monkeypatch.setattr(housing.address, "search_address", lambda kw: [BONGCHEON])
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
     monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: full)
     at = submit(deposit=22000, debt=5000)
     assert not at.exception
     text = " ".join(m.value for m in at.markdown) + " ".join(c.label for c in at.checkbox)
     assert "보증보험 가입 한도를" in text and "추정 시세 × 70% − 선순위 채권 = 12,500만 원" in text
     assert "참고용 진단입니다" in " ".join(c.value for c in at.caption)
+
+
+def test_changing_address_hides_old_result(calls, monkeypatch):
+    from dataclasses import replace
+    other = replace(BONGCHEON, road_addr="서울특별시 관악구 다른로 1", pnu="1162010100100020000")
+    at = submit()
+    assert any(h.value == BONGCHEON.road_addr for h in at.subheader)
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [other])
+    at.text_input[0].input("다른로 1").run()
+    at.selectbox[0].select(other).run()
+    assert not any(h.value == BONGCHEON.road_addr for h in at.subheader)
+
+
+def test_full_page_of_results_asks_for_more_detail(calls, monkeypatch):
+    from dataclasses import replace
+    many = lambda kw, limit=10: [replace(BONGCHEON, road_addr=f"주소 {i}") for i in range(limit)]
+    monkeypatch.setattr(housing.address, "search_address", many)
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.text_input[0].input("관악구").run()
+    assert any("자세히" in c.value for c in at.caption)

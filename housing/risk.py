@@ -33,15 +33,26 @@ def man(won: int) -> str:
 
 def assess_risk(deposit_won: int, senior_debt_won: int | None, official: OfficialPrice | None,
                 market: MarketEstimate | None, building: BuildingInfo | None,
-                market_failed: bool = False) -> RiskReport:
+                market_failed: bool = False, building_failed: bool = False) -> RiskReport:
     signals: list[Signal] = []
     debt = senior_debt_won or 0
     limit = ratio = target = None
 
-    if building is not None and not building.is_residential:
+    if building is None and not building_failed:
         signals.append(Signal(
-            "NOT_RESIDENTIAL", "danger", f"주택이 아니에요 (건축물대장 주용도: {building.main_purpose})",
-            "주택이 아닌 건물은 전세보증보험·전세대출이 막힐 수 있어요.", "건축물대장"))
+            "NO_BUILDING", "caution", "건축물대장에서 이 건물을 찾지 못했어요",
+            "대장에 없는 건물(무허가·미등재)은 전세보증보험·전세대출이 어려울 수 있어요. 정부24에서 건축물대장을 직접 떼어 확인하세요.",
+            "건축물대장"))
+    elif building is not None and not building.is_residential:
+        if building.households > 0 or "주택" in building.etc_purpose:  # 상가+주택 복합 건물: 내 호수가 주택인지가 관건
+            signals.append(Signal(
+                "MIXED_USE", "caution", "주택과 상가가 섞인 건물이에요",
+                f"건축물대장 주용도는 {building.main_purpose}예요. 계약할 호수가 건축물대장(전유부)에 주택으로 올라 있는지 확인하세요. "
+                "근린생활시설로 되어 있으면 보증보험·전세대출이 막힐 수 있어요.", "건축물대장"))
+        else:
+            signals.append(Signal(
+                "NOT_RESIDENTIAL", "danger", f"주택이 아니에요 (건축물대장 주용도: {building.main_purpose})",
+                "주택이 아닌 건물은 전세보증보험·전세대출이 막힐 수 있어요.", "건축물대장"))
 
     if deposit_won > 0:
         if senior_debt_won is None:

@@ -94,3 +94,20 @@ def test_ratio_title_never_rounds_into_next_band():
 def test_market_fetch_failure_has_no_false_trade_count_signal():
     r = assess_risk(100_000_000, 0, None, None, residential, market_failed=True)
     assert "NO_MARKET_DATA" not in codes(r)
+
+
+def test_mixed_use_building_is_caution_not_danger():
+    mixed = BuildingInfo("제2종근린생활시설", "근린생활시설,다세대주택", 6, 2015, False)
+    r = assess_risk(50_000_000, 0, None, None, mixed)
+    s = next(s for s in r.signals if s.code == "MIXED_USE")
+    assert s.level == "caution" and "NOT_RESIDENTIAL" not in codes(r)
+
+
+def test_building_not_found_is_caution():
+    r = assess_risk(50_000_000, 0, None, None, None)
+    s = next(s for s in r.signals if s.code == "NO_BUILDING")
+    assert s.level == "caution"
+
+
+def test_building_lookup_failure_has_no_not_found_signal():
+    assert "NO_BUILDING" not in codes(assess_risk(50_000_000, 0, None, None, None, building_failed=True))

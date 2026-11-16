@@ -1,5 +1,6 @@
 """연립다세대 매매 실거래가 → 추정 매매시세 (㎡당 가격 중앙값 × 면적)."""
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -101,5 +102,15 @@ def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, bu
 
 
 def get_market_price(addr: Address, area_m2: float, build_year: int | None, today: date) -> MarketEstimate | None:
-    trades = [tr for back in range(MONTHS) for tr in fetch_trades(addr.sigungu_cd, _ym_shift(today, back))]
-    return estimate_market_price(trades, addr, area_m2, build_year)
+    def one(ym: str) -> list[Trade] | DataSourceError:
+        try:
+            return fetch_trades(addr.sigungu_cd, ym)
+        except DataSourceError as e:
+            return e
+
+    with ThreadPoolExecutor(max_workers=6) as pool:  # 24개월을 순서대로 부르면 데모에서 너무 느리다
+        results = list(pool.map(one, [_ym_shift(today, back) for back in range(MONTHS)]))
+    months = [r for r in results if not isinstance(r, DataSourceError)]
+    if not months:  # 전부 실패(키 미활성 등)면 오류로 알린다; 일부 달만 실패하면 나머지로 추정
+        raise next(r for r in results if isinstance(r, DataSourceError))
+    return estimate_market_price([tr for m in months for tr in m], addr, area_m2, build_year)

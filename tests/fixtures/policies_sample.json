@@ -1,15 +1,75 @@
 [
-  {"id": "guarantee_fee", "name": "합성 보증료 지원", "contract_types": ["jeonse"], "min_age": 19, "max_age": 34,
-   "max_income_won": 50000000, "max_income_won_married": 60000000, "max_deposit_won": 300000000, "max_monthly_rent_won": null,
-   "homeless_required": true, "benefit_max_won": 400000, "benefit_text": "보증료 최대 40만 원", "documents": ["임대차계약서"],
-   "apply_url": "https://example.com", "source_url": "https://example.com", "checked_date": "2026-11-16", "unverifiable_conditions": []},
-  {"id": "monthly_rent", "name": "합성 월세 지원", "contract_types": ["monthly"], "min_age": 19, "max_age": 39,
-   "max_income_won": null, "max_income_won_married": null, "max_deposit_won": 50000000, "max_monthly_rent_won": 700000,
-   "homeless_required": true, "benefit_max_won": 2400000, "benefit_text": "월 20만 원 × 12개월", "documents": [],
-   "apply_url": "https://example.com", "source_url": "https://example.com", "checked_date": "2026-11-16",
-   "unverifiable_conditions": ["원가구 소득 중위 100% 이하"]},
-  {"id": "any_loan", "name": "합성 공통 정책", "contract_types": ["any"], "min_age": null, "max_age": null,
-   "max_income_won": null, "max_income_won_married": null, "max_deposit_won": null, "max_monthly_rent_won": null,
-   "homeless_required": null, "benefit_max_won": null, "benefit_text": "상담", "documents": [],
-   "apply_url": "https://example.com", "source_url": "https://example.com", "checked_date": "2026-11-16", "unverifiable_conditions": []}
+ {
+  "id": "guarantee_fee",
+  "name": "합성 보증료 지원",
+  "contract_types": [
+   "jeonse"
+  ],
+  "min_age": 19,
+  "max_age": 34,
+  "max_income_won": 50000000,
+  "max_income_won_married": 60000000,
+  "max_deposit_won": 300000000,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": 400000,
+  "benefit_text": "보증료 최대 40만 원",
+  "documents": [
+   "임대차계약서"
+  ],
+  "apply_url": "https://example.com",
+  "source_url": "https://example.com",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": 75000000
+ },
+ {
+  "id": "monthly_rent",
+  "name": "합성 월세 지원",
+  "contract_types": [
+   "monthly"
+  ],
+  "min_age": 19,
+  "max_age": 39,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": 50000000,
+  "max_monthly_rent_won": 700000,
+  "homeless_required": true,
+  "benefit_max_won": 2400000,
+  "benefit_text": "월 20만 원 × 12개월",
+  "documents": [],
+  "apply_url": "https://example.com",
+  "source_url": "https://example.com",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [
+   "원가구 소득 중위 100% 이하"
+  ],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null
+ },
+ {
+  "id": "any_loan",
+  "name": "합성 공통 정책",
+  "contract_types": [
+   "any"
+  ],
+  "min_age": null,
+  "max_age": null,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": null,
+  "max_monthly_rent_won": null,
+  "homeless_required": null,
+  "benefit_max_won": null,
+  "benefit_text": "상담",
+  "documents": [],
+  "apply_url": "https://example.com",
+  "source_url": "https://example.com",
+  "checked_date": "2026-11-16",
+  "unverifiable_conditions": [],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null
+ }
 ]
