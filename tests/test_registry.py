@@ -42,3 +42,9 @@ def test_pdf_without_text_raises():
     w.write(buf)
     with pytest.raises(DataSourceError, match="직접 입력"):
         read_registry_pdf(buf.getvalue())
+
+
+def test_reads_sample_pdf_end_to_end():
+    data = (Path(__file__).parent / "fixtures" / "registry_sample.pdf").read_bytes()  # 테스트용 예시, 실제 등기부 아님
+    r = read_registry_pdf(data)
+    assert r.total_won == 134_000_000 and r.flags == ["압류"]
