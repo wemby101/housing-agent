@@ -1,0 +1,75 @@
+from datetime import date
+
+import pytest
+
+from housing import market
+from housing.market import Trade, estimate_market_price, fetch_trades, get_market_price, parse_trade
+from tests.test_building import BONGCHEON  # 봉천동 1-70
+
+ITEM = {  # 필드명은 계획서 기준 — 실거래가 키 활성화 후 실제 응답으로 재확인 필요
+    "dealAmount": "21,000", "excluUseAr": "40.5", "buildYear": "2003", "umdNm": "봉천동",
+    "jibun": "1-70", "cdealType": " ", "dealYear": "2026", "dealMonth": "9",
+}
+
+
+def t(price_man, area=40.0, year=2003, jibun="1-70", umd="봉천동"):
+    return Trade(price_won=price_man * 10_000, area_m2=area, build_year=year, umd_name=umd, jibun=jibun, ym="202609")
+
+
+def test_parse_amount_with_comma():
+    tr = parse_trade({**ITEM, "dealAmount": "12,500"})
+    assert tr.price_won == 125_000_000
+    assert (tr.area_m2, tr.build_year, tr.jibun, tr.ym) == (40.5, 2003, "1-70", "202609")
+
+
+def test_cancelled_trade_excluded():
+    assert parse_trade({**ITEM, "cdealType": "O"}) is None
+
+
+def test_same_jibun_basis_uses_median_per_m2():
+    trades = [t(16_000), t(20_000), t(24_000), t(99_000, jibun="5-1")]  # ㎡당 400·500·600만
+    e = estimate_market_price(trades, BONGCHEON, 40.0, 2003)
+    assert (e.basis, e.comp_count, e.price_won, e.months) == ("same_jibun", 3, 200_000_000, 24)
+
+
+def test_falls_back_to_same_dong_with_area_and_year_window():
+    trades = [
+        t(30_000, area=100.0),                 # 같은 지번 1건 (면적 범위 밖)
+        t(20_000, jibun="5-1", area=45.0),     # 포함
+        t(18_000, jibun="9", year=2007),       # 포함
+        t(20_000, jibun="7", area=50.0),       # 면적 +25% → 제외
+        t(20_000, jibun="8", year=1995),       # 건축년도 -8 → 제외
+        t(20_000, jibun="3", umd="신림동"),     # 다른 동 → 제외
+    ]
+    e = estimate_market_price(trades, BONGCHEON, 40.0, 2003)
+    assert e.basis == "same_dong" and e.comp_count == 2
+
+
+def test_fewer_than_two_comps_returns_none():
+    assert estimate_market_price([t(20_000)], BONGCHEON, 40.0, 2003) is None
+
+
+def test_get_market_price_requests_24_months(monkeypatch):
+    asked = []
+    monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym: asked.append((lawd, ym)) or [t(16_000), t(24_000)])
+    e = get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16))
+    assert len(asked) == 24 and asked[0] == ("11620", "202611") and asked[-1] == ("11620", "202412")
+    assert e.price_won == 200_000_000
+
+
+def test_fetch_trades_pages_and_caches_old_months(monkeypatch, tmp_path):
+    monkeypatch.setattr(market, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(market, "date", type("D", (), {"today": staticmethod(lambda: date(2026, 11, 16))}))
+    calls = []
+
+    def fake_call(url, params):
+        calls.append(params["pageNo"])
+        page = [ITEM] * (1000 if params["pageNo"] == 1 else 5)
+        return {"totalCount": 1005, "items": {"item": page}}
+
+    monkeypatch.setattr(market, "call_datagokr", fake_call)
+    assert len(fetch_trades("11620", "202601")) == 1005 and calls == [1, 2]
+    assert len(fetch_trades("11620", "202601")) == 1005 and calls == [1, 2]  # 캐시
+    fetch_trades("11620", "202610")  # 지난달은 아직 신고가 들어오는 중 → 캐시 안 함
+    fetch_trades("11620", "202610")
+    assert calls == [1, 2, 1, 2, 1, 2]
