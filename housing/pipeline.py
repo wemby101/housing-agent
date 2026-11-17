@@ -90,3 +90,17 @@ def what_if(d: Diagnosis, deposit_won: int, monthly_rent_won: int) -> RiskReport
 def rent_for_cut(cut_won: int, rate_pct: float) -> int:
     """보증금을 cut_won만큼 낮출 때 같은 값이 되는 월세 (전환율 = 1년 월세 합 ÷ 낮춘 보증금), 천 원 단위."""
     return int(round(cut_won * rate_pct / 100 / 12, -3))
+
+
+# 청년전용 버팀목전세자금 (주택도시기금, 2026-11-17 확인): 연 2.2~3.3%, 최대 1.5억 원 · 보증금의 80% 이내
+YOUTH_LOAN_LIMIT_WON = 150_000_000
+YOUTH_LOAN_RATE_PCT = 2.8  # 범위의 가운데. 실제 금리는 소득·보증금에 따라 달라 화면에서 고칠 수 있다
+
+
+def default_loan(deposit_won: int) -> int:
+    return min(deposit_won * 8 // 10, YOUTH_LOAN_LIMIT_WON)
+
+
+def monthly_interest(loan_won: int, rate_pct: float) -> int:
+    """대출 원금에 대한 한 달 이자 (전월세 전환과 같은 식: 금액 × 연이율 ÷ 12), 천 원 단위."""
+    return rent_for_cut(loan_won, rate_pct)

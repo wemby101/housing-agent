@@ -180,3 +180,13 @@ def test_without_my_info_policies_are_skipped_not_guessed(sources, monkeypatch):
     assert d.policies == [] and d.youth == [] and not d.policies_checked
     assert "youth" not in d.errors and d.risk.deposit_ratio is not None
     assert run().policies_checked
+
+
+def test_monthly_interest_on_loan():
+    assert pipeline.monthly_interest(150_000_000, 2.8) == 350_000  # 1억 5천 × 2.8% ÷ 12
+    assert pipeline.monthly_interest(0, 2.8) == 0
+
+
+def test_default_youth_loan_is_80_percent_up_to_limit():
+    assert pipeline.default_loan(150_000_000) == 120_000_000
+    assert pipeline.default_loan(220_000_000) == 150_000_000  # 청년전용 버팀목 한도

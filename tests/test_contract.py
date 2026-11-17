@@ -60,3 +60,22 @@ def test_message_without_proposal_only_asks_for_terms():
 def test_won_reads_like_korean_money():
     assert won(220_000_000) == "2억 2,000만 원" and won(225_000) == "22.5만 원" and won(100_000_000) == "1억 원"
     assert won(5_000_000) == "500만 원" and won(238_451_000) == "2억 3,845만 원"  # 큰 금액은 소수점 없이 (man()과 같이 내림)
+
+
+def test_landlord_checks_cover_app_and_unpaid_tax():
+    from housing.contract import landlord_checks
+    text = " ".join(landlord_checks(diag()))
+    assert "안심전세 앱" in text and "사고 이력" in text
+    assert "체납" in text and "세무서" in text
+    assert "신탁원부" not in text
+
+
+def test_trust_registry_asks_for_trustee_consent():
+    from housing.contract import landlord_checks
+    text = " ".join(landlord_checks(diag(flags=("신탁",))))
+    assert "신탁원부" in text and "동의서" in text
+
+
+def test_small_deposit_skips_tax_viewing_without_consent():
+    from housing.contract import landlord_checks
+    assert not any("세무서" in c for c in landlord_checks(diag(deposit=5_000_000, rent=500_000)))

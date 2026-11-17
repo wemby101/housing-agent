@@ -56,3 +56,16 @@ def negotiation_message(d: Diagnosis, deposit_won: int | None = None, monthly_re
     lines += [f"{i}. {t}" for i, t in enumerate(special_terms(d), 1)]
     lines += ["", "검토 부탁드립니다. 감사합니다."]
     return "\n".join(lines)
+
+
+def landlord_checks(d: Diagnosis) -> list[str]:
+    """집주인 확인: 공개 API가 없어 자동 조회는 못 하고, 어디서 어떻게 보는지 안내한다 (2026-11-17 확인)."""
+    checks = ["집주인 확인: HUG 안심전세 앱에서 임대인 정보 조회 — 세금 체납 여부, 전세보증 사고 이력, "
+              "보증 가입 금지 여부 (공인중개사를 통해 계약 의사가 확인되면 집주인 동의 없이 조회, 결과는 최대 7일 안에)"]
+    if d.deposit_won > 10_000_000:
+        checks.append("집주인 세금 체납 열람: 계약 후 입주일 전까지 계약서와 신분증을 들고 가까운 세무서에서 미납 국세 열람 "
+                      "(보증금 1천만 원 초과면 계약 뒤에는 집주인 동의 없이 가능)")
+    if "신탁" in d.registry_flags:
+        checks.append("신탁 등기: 등기소에서 신탁원부를 떼어 임대 권한이 누구에게 있는지 확인하고, 수탁사(신탁회사)의 "
+                      "임대 동의서를 받기. 동의 없이 원래 집주인과만 계약하면 보증금을 보호받지 못할 수 있어요")
+    return checks

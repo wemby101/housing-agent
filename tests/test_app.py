@@ -465,3 +465,39 @@ def test_price_trend_chart_and_caption(monkeypatch):
     assert any("㎡당 매매가 추이" in m.value for m in at.markdown)
     assert any("10% 떨어졌어요" in c.value for c in at.caption)
     assert not at.exception
+
+
+def test_loan_interest_compared_with_monthly_rent(monkeypatch):
+    at = jeonse_result(monkeypatch)  # 보증금 2억 2천 → 기본 대출 1억 5천(한도), 2.8% → 월 35만 원
+    loan = next(n for n in at.number_input if "대출받을 금액" in n.label)
+    assert loan.value == 15000
+    text = whatif_text(at)
+    assert "월 대출이자 **35만 원**" in text and "슬라이더로 보증금을 낮추면" in text
+    next(s for s in at.slider if "보증금" in s.label).set_value(15000).run()
+    # 내 돈 7천 → 보증금 1억 5천이면 대출 8천(월 18.7만) + 월세 29.2만 = 47.9만, 1년에 155만 원쯤 더
+    text = whatif_text(at)
+    assert "월 대출이자 18.7만 원 + 월세 29.2만 원 = **47.9만 원**" in text and "더** 들어요" in text
+
+
+def test_checklist_has_landlord_checks(monkeypatch):
+    at = jeonse_result(monkeypatch)
+    labels = [c.label for c in at.checkbox]
+    assert any("안심전세 앱" in l for l in labels) and any("세무서" in l for l in labels)
+
+
+def test_map_toggle_draws_points(monkeypatch):
+    import housing.geocode
+    from housing.market import MarketEstimate, Trade
+    comps = (Trade(200_000_000, 40.0, 2003, "봉천동", "5-1", "202605"),) * 3
+    full = Diagnosis(BONGCHEON, None, None, MarketEstimate(200_000_000, 3, "same_dong", 24, comps=comps),
+                     RiskReport("h", [], 1.0, None, None), [], {}, deposit_won=200_000_000)
+    st.cache_data.clear()
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: full)
+    monkeypatch.setattr(housing.geocode, "comp_points", lambda addr, comps: [
+        {"lat": 37.48, "lon": 126.95, "home": True, "count": 0, "label": "이 집"},
+        {"lat": 37.481, "lon": 126.951, "home": False, "count": 3, "label": "5-1 · 거래 3건"}])
+    at = submit(deposit=20000)
+    next(t for t in at.toggle if "지도" in t.label).set_value(True).run()
+    assert not at.exception
+    assert len(at.get("deck_gl_json_chart")) == 1

@@ -1,20 +1,24 @@
 """청년 집 구하기 진단 — 폼 모드 (Streamlit)."""
+import math
 from datetime import date
 from pathlib import Path
 from statistics import median
 from urllib.parse import urlencode
 
 import altair as alt
+import pydeck as pdk
 import streamlit as st
 import streamlit.components.v1 as components
 
 from housing import agent
 from housing.address import search_address
-from housing.contract import negotiation_message, special_terms, won
+from housing.contract import landlord_checks, negotiation_message, special_terms, won
 from housing.errors import DataSourceError
+from housing.geocode import comp_points
 from housing.market import quarterly_per_m2
 from housing.official_price import list_units
-from housing.pipeline import LEGAL_CONVERSION_PCT, diagnose, rent_for_cut, what_if
+from housing.pipeline import (LEGAL_CONVERSION_PCT, YOUTH_LOAN_RATE_PCT, default_loan, diagnose, monthly_interest,
+                              rent_for_cut, what_if)
 from housing.policies import Profile
 from housing.registry import read_registry_pdf
 from housing.report import build_report
@@ -66,9 +70,35 @@ def cached_units(addr):
         return []
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def cached_points(addr, comps):
+    return comp_points(addr, comps)
+
+
 @st.cache_data(ttl=3600, show_spinner="공공데이터를 조회하고 있어요…")
 def cached_diagnose(*args, **kwargs):
     return diagnose(*args, **kwargs)
+
+
+def show_map(points):
+    """이 집(벽돌색) + 거래 지번(청회색, 거래가 많을수록 크게). 마우스를 올리면 지번·거래 수·㎡당 가격."""
+    if not points:
+        st.info("거래 위치의 좌표를 찾지 못했어요.")
+        return
+    center = next((p for p in points if p["home"]), points[0])
+    for p in points:  # 점 크기(m): 이 집은 크게, 거래 지번은 거래 수에 따라. 화면에서는 아래 픽셀 범위로 묶는다
+        p["r"] = 30 if p["home"] else 12 + 6 * min(p["count"], 8) ** 0.5
+    layer = pdk.Layer("ScatterplotLayer", data=[p for p in points if not p["home"]] + [p for p in points if p["home"]],
+                      get_position="[lon, lat]", get_radius="r", radius_min_pixels=5, radius_max_pixels=14,
+                      pickable=True, stroked=True,  # radius_units="pixels"는 pydeck이 식으로 바꿔 깨진다
+                      get_fill_color="home ? [165, 68, 45, 235] : [74, 101, 120, 170]",
+                      get_line_color=[255, 253, 249], line_width_min_pixels=1.5)
+    # 모든 점이 들어오는 확대 수준: 높이 320px에 보이는 위도 폭 ≈ 450 ÷ 2^zoom
+    reach = max(max(abs(p["lat"] - center["lat"]), abs(p["lon"] - center["lon"]) * 0.8) for p in points) or 0.002
+    zoom = max(11.0, min(16.0, math.log2(450 / (2.6 * reach))))
+    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=pdk.ViewState(latitude=center["lat"], longitude=center["lon"], zoom=zoom),
+                             tooltip={"text": "{label}"}, map_style=pdk.map_styles.CARTO_LIGHT), height=320)
+    st.caption("벽돌색 점이 이 집, 청회색 점이 거래한 지번이에요 (점이 클수록 거래가 많아요). 점에 마우스를 올리거나 눌러 보세요.")
 
 
 def same_house(a, b):  # 같은 집·같은 조건이면 비교 목록에 두 번 담지 않는다
@@ -298,6 +328,18 @@ if d is not None:
                          hide_index=True, use_container_width=True,
                          column_config={"금액(만원)": st.column_config.NumberColumn(format="localized")})
 
+    # 시세 근거 거래의 위치 (펼침 칸 안에 두면 토글할 때 칸이 접혀서 밖에 둔다)
+    if d.market is not None and d.market.comps and st.toggle(
+            "📍 거래한 집들을 지도로 보기", key=f"map-{d.address.pnu}",
+            help="추정 매매 시세에 쓴 거래의 지번을 지도에 찍어요. 처음 열 때 좌표를 찾느라 몇 초 걸려요."):
+        try:
+            with st.spinner("거래 위치를 찾고 있어요…"):
+                pts = cached_points(d.address, d.market.comps)
+        except DataSourceError as e:
+            st.warning(f"지도를 그리지 못했어요. {e}")
+        else:
+            show_map(pts)
+
     # 2-1) 보증금을 바꿔 보면: 같은 집 데이터로 위험만 다시 계산한다 (공공데이터는 다시 부르지 않음)
     proposal, proposal_note = None, ""  # 협상 메시지에 넣을 (보증금, 월세)와 그 출처
     if d.deposit_won >= 100 * MAN and d.monthly_rent_won == 0 and d.market is not None:  # 전세 계약만
@@ -314,7 +356,7 @@ if d is not None:
                                     "(한국은행 기준금리 3.00% + 2%p). 실제 월세는 집주인과 협상해 정해요.")
         cut = d.deposit_won - new_man * MAN
         new_rent = d.monthly_rent_won + rent_for_cut(cut, rate)
-        alt = what_if(d, new_man * MAN, new_rent)
+        changed = what_if(d, new_man * MAN, new_rent)
         if cut > 0:
             proposal = (new_man * MAN, new_rent)
             proposal_note = "제안 조건은 위 '보증금을 낮추고 월세로 바꾸면'에서 고른 값이에요."
@@ -327,7 +369,32 @@ if d is not None:
 
         c1, c2 = st.columns(2)
         terms(c1, "지금 조건", d.deposit_won, d.monthly_rent_won, r)
-        terms(c2, "바꾼 조건", new_man * MAN, new_rent, alt)
+        terms(c2, "바꾼 조건", new_man * MAN, new_rent, changed)
+        # 전세대출 이자 vs 월세: 내 돈은 그대로 두고, 보증금 중 모자란 만큼 대출받는다고 본다
+        st.markdown("**전세대출을 받으면 매달 얼마?**")
+        c1, c2 = st.columns(2)
+        loan_man = c1.number_input("지금 조건에서 대출받을 금액 (만원)", min_value=0, max_value=top_man, step=500,
+                                   value=default_loan(d.deposit_won) // MAN, key=f"loan-{key}",
+                                   help="기본값은 청년전용 버팀목전세자금 한도: 보증금의 80% 이내, 최대 1억 5,000만 원.")
+        loan_rate = c2.number_input("대출 금리 (%)", min_value=0.0, max_value=20.0, value=YOUTH_LOAN_RATE_PCT, step=0.1,
+                                    key=f"loan-rate-{key}",
+                                    help="청년전용 버팀목전세자금은 연 2.2~3.3% (소득·보증금에 따라 달라요, 주택도시기금 2026-11 확인). "
+                                         "기본값은 그 가운데예요. 은행 전세대출이면 그 금리를 넣으세요.")
+        own = d.deposit_won - loan_man * MAN  # 내 돈
+        now_cost = monthly_interest(loan_man * MAN, loan_rate)
+        new_loan = max(new_man * MAN - own, 0)
+        new_cost = monthly_interest(new_loan, loan_rate) + new_rent
+        line = f"지금 조건: 월 대출이자 **{won(now_cost)}**"
+        if cut > 0:
+            line += (f"  \n바꾼 조건: 월 대출이자 {won(monthly_interest(new_loan, loan_rate))} + 월세 {won(new_rent)} = "
+                     f"**{won(new_cost)}**  \n1년이면 " +
+                     (f"바꾼 조건이 **{won((new_cost - now_cost) * 12)} 더** 들어요" if new_cost > now_cost else
+                      f"바꾼 조건이 **{won((now_cost - new_cost) * 12)} 덜** 들어요" if new_cost < now_cost else "똑같아요"))
+        else:
+            line += "  \n위 슬라이더로 보증금을 낮추면 '대출이자 + 월세'와 비교해 드려요."
+        st.markdown(line)
+        st.caption(f"내 돈 {won(max(own, 0))}은 두 조건 모두 보증금에 넣고, 모자란 만큼만 대출받는다고 계산했어요. "
+                   "내 돈을 예금했을 때의 이자는 빼고 계산했어요.")
         if cut > 0:
             st.caption(f"보증금을 {won(cut)} 낮추면 월세가 {won(new_rent - d.monthly_rent_won)} 늘어요 (전환율 {rate:g}%). "
                        f"1년에 {won((new_rent - d.monthly_rent_won) * 12)}을 더 내는 대신, 돌려받지 못할 수 있는 돈이 {won(cut)} 줄어요.")
@@ -401,6 +468,7 @@ if d is not None:
     items += [
         "등기부등본(을구)에서 근저당·선순위 채권 확인",
         "건축물대장에서 위반건축물 여부 확인 (자동 조회 항목에 없어 직접 확인이 필요해요)",
+        *landlord_checks(d),
         "계약서에 위 '계약서 특약' 문구 넣기",
     ]
     done = set(link.get("done", "").split(",")) - {""}
