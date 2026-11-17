@@ -1,10 +1,10 @@
-# 청사진 디자인: 옅은 파란 모눈 바탕 + 남색 머리띠(평면도 선), 포인트는 파랑 하나
+# 적벽돌 바탕 위 흰 패널 + 남색 머리띠(평면도 선), 포인트는 파랑 하나 (벽돌은 style.css)
 # 글꼴은 포트폴리오와 같게: 본문 Noto Sans KR, 숫자·코드 IBM Plex Mono
 [theme]
 base = "light"
 primaryColor = "#2563eb"
-backgroundColor = "#f3f6fb"
-secondaryBackgroundColor = "#ffffff"   # 입력칸·카드
+backgroundColor = "#ffffff"            # 흰 패널
+secondaryBackgroundColor = "#f3f6fb"   # 입력칸
 textColor = "#0f172a"
 linkColor = "#1d4ed8"
 borderColor = "#dce3ef"
@@ -26,3 +26,6 @@ blueTextColor = "#1d4ed8"
 blueBackgroundColor = "#e5edff"
 greenTextColor = "#0f8a63"
 greenBackgroundColor = "#e3f6ee"
+
+[client]
+toolbarMode = "minimal"                # 시연 화면에 Deploy 같은 개발자 단추를 숨긴다

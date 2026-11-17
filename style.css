@@ -1,19 +1,25 @@
-/* 청사진 디자인: 바탕 전체에 옅은 모눈, 맨 위 남색 머리띠에 원룸 평면도 선. 카드는 흰 바탕 + 얇은 테두리 */
+/* 적벽돌 담장 위 흰 패널. 맨 위 남색 머리띠에 원룸 평면도 선, 집 주소는 파란 도로명주소판 */
 /* 한국어는 단어 중간에서 줄바꿈하지 않는다 (링크처럼 긴 글자는 예외로 끊는다) */
 [data-testid="stApp"] *:not(code):not(pre) { word-break: keep-all; overflow-wrap: anywhere; }  /* Streamlit이 요소마다 break-word를 지정해 상속으로는 안 먹는다 */
 
-/* 바탕: 32px 모눈 + 오른쪽 위의 옅은 파란 빛 */
+/* 바탕: 서울 빌라 적벽돌 (벽돌마다 색을 조금씩 달리, 줄눈은 밝은 회색). 글은 흰 패널 위에만 올린다 */
 [data-testid="stApp"] {
-  background-color: #f3f6fb;
+  background-color: #9a4f39;
   background-image:
-    radial-gradient(900px 480px at 100% 0%, rgba(37, 99, 235, .08), transparent 70%),
-    linear-gradient(rgba(37, 99, 235, .07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 99, 235, .07) 1px, transparent 1px);
-  background-size: auto, 32px 32px, 32px 32px;
+    linear-gradient(rgba(40, 18, 10, .22), rgba(40, 18, 10, .10)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='52'%3E%3Crect width='120' height='52' fill='%23cdbfb3'/%3E%3Crect x='0' y='0' width='58' height='24' fill='%23a6573f'/%3E%3Crect x='60' y='0' width='58' height='24' fill='%23994c36'/%3E%3Crect x='-30' y='26' width='58' height='24' fill='%23ad6046'/%3E%3Crect x='30' y='26' width='58' height='24' fill='%239f523b'/%3E%3Crect x='90' y='26' width='58' height='24' fill='%23ad6046'/%3E%3C/svg%3E");
   background-attachment: fixed;
 }
 [data-testid="stHeader"] { background: transparent; }
-[data-testid="stMainBlockContainer"] { max-width: 760px; padding-top: 3rem; }
+[data-testid="stMainMenu"] button { background: rgba(255, 255, 255, .9); border-radius: 999px; }  /* 벽돌 위에서도 메뉴 단추가 보이게 */
+[data-testid="stMainBlockContainer"] {
+  background: #ffffff;
+  max-width: 760px;
+  margin: 3rem auto 4rem;
+  padding: 2rem 2.25rem 2rem;
+  border-radius: 20px;
+  box-shadow: 0 24px 50px -10px rgba(40, 18, 10, .5);
+}
 
 /* 머리띠: 남색 청사진 + 평면도 선(방 셋, 문 열리는 호, 창) */
 .st-key-hero {
@@ -64,18 +70,22 @@ h2, h3, h4 { letter-spacing: -0.02em !important; }
 }
 [data-testid="stForm"] { padding: 24px; }
 
-/* 진단한 집 주소: 평면도 도면 번호처럼 위에 파란 선 */
-.st-key-addr-plate { border-top: 4px solid #2563eb; padding-top: 12px; }
-.st-key-addr-plate h3 { font-size: 2rem; line-height: 1.25; }
+/* 진단한 집 주소: 파란 도로명주소판 (흰 테두리 한 줄) */
+.st-key-addr-plate h3 {
+  display: inline-block; background: #1f4e8c; color: #ffffff;
+  padding: .55rem 1.1rem; border-radius: 8px; font-size: 1.6rem; line-height: 1.35;
+  box-shadow: inset 0 0 0 3px #1f4e8c, inset 0 0 0 5px #ffffff;
+}
+.st-key-addr-plate [data-testid="stHeaderActionElements"] { display: none; }
 
 /* 지표 숫자: 자릿수 폭을 맞춘다 (고정폭 글꼴은 '만 원' 한글과 섞이면 어색해서 쓰지 않음) */
 [data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
 @media (max-width: 640px) {
-  [data-testid="stMainBlockContainer"] { padding-top: 2rem; }
+  [data-testid="stMainBlockContainer"] { margin: 1rem .5rem 2rem; padding: 1rem .75rem 1.5rem; border-radius: 14px; }
   .st-key-hero { padding: 26px 20px 22px; }
   .st-key-hero h1 { font-size: 1.9rem; }
   .st-key-hero::after { width: 200px; height: 140px; opacity: .3; }
-  .st-key-addr-plate h3 { font-size: 1.5rem; }
+  .st-key-addr-plate h3 { font-size: 1.2rem; }
   [data-testid="stForm"] { padding: 16px; }
 }
