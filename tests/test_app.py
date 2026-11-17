@@ -192,3 +192,24 @@ def test_result_offers_report_download(calls):
     at = submit()
     buttons = at.get("download_button")
     assert len(buttons) == 1 and "저장" in buttons[0].proto.label
+
+
+def test_youth_policies_listed_separately(calls, monkeypatch):
+    from housing.youth import YouthPolicy
+    p = YouthPolicy("인품 자립주택 운영", "인천광역시 청년정책담당관", "보증금 일부 지원", "상시", "https://youth.incheon.go.kr/x")
+    d = Diagnosis(BONGCHEON, None, None, None, RiskReport("h", [], None, None, None), [], {}, [p])
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: d)
+    at = submit()
+    exp = next(e for e in at.expander if "이 지역의 다른 청년 주거 정책" in e.label)
+    assert "1개" in exp.label
+    text = " ".join(m.value for m in exp.markdown)
+    assert "인품 자립주택 운영" in text and "https://youth.incheon.go.kr/x" in text and "온통청년" in text
+
+
+def test_youth_policy_with_blank_support_does_not_crash(calls, monkeypatch):
+    from housing.youth import YouthPolicy
+    p = YouthPolicy("빈 설명 정책", "인천광역시", "- ", "상시", "https://www.youthcenter.go.kr")
+    d = Diagnosis(BONGCHEON, None, None, None, RiskReport("h", [], None, None, None), [], {}, [p])
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: d)
+    at = submit()
+    assert not at.exception

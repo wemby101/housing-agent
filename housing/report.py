@@ -45,6 +45,10 @@ def build_report(d: Diagnosis, checklist: list[str], done: set[int], disclaimer:
                      f"<ul>{reasons}</ul><a href='{e(p['apply_url'])}'>신청하기</a></div>")
     if not d.policies:
         parts.append("<p>입력한 조건으로 맞는 지원을 찾지 못했어요.</p>")
+    if d.youth:
+        parts.append("<h2>이 지역의 다른 청년 주거 정책</h2><small>출처: 온통청년. 자격은 자동으로 따지지 않았어요.</small><ul>")
+        parts += [f"<li><a href='{e(y.url)}'>{e(y.name)}</a> · {e(y.org)} · 신청 {e(y.period)}</li>" for y in d.youth]
+        parts.append("</ul>")
     if checklist:
         parts.append("<h2>해야 할 일</h2><ul style='list-style:none;padding:0'>")
         parts += [f"<li>{'☑' if i in done else '☐'} {e(it.replace('**', ''))}</li>" for i, it in enumerate(checklist)]

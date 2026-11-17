@@ -17,7 +17,7 @@ from housing.risk import man
 DISCLAIMER = "참고용 진단입니다. 계약 전 공인중개사·HUG(1566-9009) 상담으로 확인하세요."
 MAN = 10_000
 SEARCH_LIMIT = 20
-ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "market": "실거래가 시세"}
+ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "market": "실거래가 시세", "youth": "온통청년 정책"}
 
 st.set_page_config(page_title="청년 집 구하기 진단", page_icon="🏠")
 st.markdown(f"<style>{(Path(__file__).parent / 'style.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
@@ -223,6 +223,12 @@ if d is not None:
             if p["documents"]:
                 st.markdown("**준비 서류:** " + ", ".join(p["documents"]))
             st.markdown(f"[신청하기]({p['apply_url']}) · [출처]({p['source_url']}) (확인일 {p['checked_date']})")
+    if d.youth:
+        with st.expander(f"🗂️ 이 지역의 다른 청년 주거 정책 {len(d.youth)}개"):
+            st.markdown("출처: 온통청년 청년정책 API. 자격은 자동으로 따지지 않았으니 링크에서 조건을 확인하세요.")
+            for y in d.youth:
+                first = next(iter(y.support.lstrip("-•○ \n").splitlines()), "")[:80]
+                st.markdown(f"**[{y.name}]({y.url})** · {y.org} · 신청 {y.period}" + (f"  \n{first}" if first else ""))
 
     # 4) 체크리스트
     st.markdown("#### 해야 할 일")

@@ -11,7 +11,7 @@ from pathlib import Path
 import requests
 
 DEMO_DIR = Path(__file__).resolve().parent.parent / "data" / "demo"
-SECRET_PARAMS = {"serviceKey", "confmKey", "key", "domain"}  # 키는 저장하지 않고, 배포 주소가 바뀌어도 같은 요청으로 본다
+SECRET_PARAMS = {"serviceKey", "confmKey", "key", "apiKeyNm", "domain"}  # 키는 저장하지 않고, 배포 주소가 바뀌어도 같은 요청으로 본다
 
 
 class _Saved:

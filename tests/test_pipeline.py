@@ -21,6 +21,7 @@ def sources(monkeypatch):
     seen = {}
     monkeypatch.setattr(pipeline, "get_building", lambda addr: BuildingInfo("공동주택", "다세대주택", 9, 2003, True))
     monkeypatch.setattr(pipeline, "get_official_price", boom)
+    monkeypatch.setattr(pipeline, "get_youth_policies", lambda zip_cd, age: [])
 
     def market(addr, area, year, today, kind):
         seen["market_args"] = (area, year, today)
@@ -83,3 +84,13 @@ def test_apartment_uses_apartment_trades(sources, monkeypatch):
     monkeypatch.setattr(pipeline, "get_building", lambda addr: BuildingInfo("공동주택", "아파트", 300, 2010, True))
     run()
     assert sources["kind"] == "apt"
+
+
+def test_youth_policies_attached_and_failure_isolated(sources, monkeypatch):
+    from housing.youth import YouthPolicy
+    p = YouthPolicy("인품 자립주택 운영", "인천광역시", "지원 내용", "상시", "https://x")
+    monkeypatch.setattr(pipeline, "get_youth_policies", lambda zip_cd, age: [p] if zip_cd == "11620" and age == 26 else [])
+    assert run().youth == [p]
+    monkeypatch.setattr(pipeline, "get_youth_policies", boom)
+    d = run()
+    assert d.youth == [] and "youth" in d.errors and d.policies  # 정책표 매칭은 그대로

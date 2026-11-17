@@ -1,5 +1,5 @@
 """한 번의 진단: 출처별로 따로 호출하고, 실패한 출처는 errors에 남긴 채 나머지를 계산한다."""
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from housing.address import Address
@@ -9,6 +9,7 @@ from housing.market import MarketEstimate, get_market_price
 from housing.official_price import OfficialPrice, get_official_price
 from housing.policies import PolicyMatch, Profile, load_policies, match_policies
 from housing.risk import RiskReport, assess_risk
+from housing.youth import YouthPolicy, get_youth_policies
 
 
 @dataclass
@@ -20,6 +21,7 @@ class Diagnosis:
     risk: RiskReport
     policies: list[PolicyMatch]
     errors: dict[str, str]
+    youth: list[YouthPolicy] = field(default_factory=list)  # 온통청년: 이 지역의 다른 청년 주거 정책
 
 
 def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: int,
@@ -45,4 +47,6 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
     market = attempt("market", get_market_price, address, area_m2, building.approval_year if building else None, today, kind)
     risk = assess_risk(deposit_won, senior_debt_won, official, market, building, market_failed="market" in errors,
                        building_failed="building" in errors, registry_flags=registry_flags)
-    return Diagnosis(address, building, official, market, risk, match_policies(profile, load_policies(), address.sigungu_cd[:2]), errors)
+    youth = attempt("youth", get_youth_policies, address.sigungu_cd, profile.age) or []
+    return Diagnosis(address, building, official, market, risk, match_policies(profile, load_policies(), address.sigungu_cd[:2]),
+                     errors, youth)
