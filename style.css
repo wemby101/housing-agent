@@ -1,53 +1,81 @@
-/* Vercel(Geist) 방식: 장식은 맨 위 그라데이션 하나뿐, 나머지는 먹색과 얇은 테두리 */
+/* 청사진 디자인: 바탕 전체에 옅은 모눈, 맨 위 남색 머리띠에 원룸 평면도 선. 카드는 흰 바탕 + 얇은 테두리 */
 /* 한국어는 단어 중간에서 줄바꿈하지 않는다 (링크처럼 긴 글자는 예외로 끊는다) */
-[data-testid="stApp"] { background-color: #fafafa; }
 [data-testid="stApp"] *:not(code):not(pre) { word-break: keep-all; overflow-wrap: anywhere; }  /* Streamlit이 요소마다 break-word를 지정해 상속으로는 안 먹는다 */
-/* 맨 위 장식 두 겹: 천천히 흐르는 그라데이션 + 아래로 사라지는 평면도 격자. 내용과 같이 스크롤된다 */
-[data-testid="stMain"] { position: relative; }
-[data-testid="stMain"]::before, [data-testid="stMain"]::after {
-  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 340px;
-  pointer-events: none; z-index: 0;
-}
-[data-testid="stMain"]::before {
-  background:
-    radial-gradient(ellipse 30% 90% at 12% 0%, rgba(0, 124, 240, .18), transparent 70%),
-    radial-gradient(ellipse 28% 90% at 38% 0%, rgba(0, 223, 216, .13), transparent 70%),
-    radial-gradient(ellipse 28% 90% at 62% 0%, rgba(121, 40, 202, .14), transparent 70%),
-    radial-gradient(ellipse 30% 90% at 88% 0%, rgba(249, 203, 40, .18), transparent 70%);
-  background-size: 140% 100%;
-  animation: mesh-drift 18s ease-in-out infinite alternate;
-}
-[data-testid="stMain"]::after {
+
+/* 바탕: 32px 모눈 + 오른쪽 위의 옅은 파란 빛 */
+[data-testid="stApp"] {
+  background-color: #f3f6fb;
   background-image:
-    linear-gradient(#e4e4e4 1px, transparent 1px),
-    linear-gradient(90deg, #e4e4e4 1px, transparent 1px);
-  background-size: 32px 32px;
-  background-position: center top;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
-  mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
+    radial-gradient(900px 480px at 100% 0%, rgba(37, 99, 235, .08), transparent 70%),
+    linear-gradient(rgba(37, 99, 235, .07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, .07) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+  background-attachment: fixed;
 }
-[data-testid="stMainBlockContainer"] { position: relative; z-index: 1; }
-@keyframes mesh-drift { from { background-position: 0% 0; } to { background-position: 100% 0; } }
-@media (prefers-reduced-motion: reduce) { [data-testid="stMain"]::before { animation: none; } }
 [data-testid="stHeader"] { background: transparent; }
-[data-testid="stMainBlockContainer"] { max-width: 760px; }
+[data-testid="stMainBlockContainer"] { max-width: 760px; padding-top: 3rem; }
+
+/* 머리띠: 남색 청사진 + 평면도 선(방 셋, 문 열리는 호, 창) */
+.st-key-hero {
+  position: relative; overflow: hidden;
+  padding: 36px 32px 30px; border-radius: 20px;
+  color: #f1f5ff;
+  background:
+    radial-gradient(520px 300px at 90% 20%, rgba(20, 42, 102, .95), transparent 70%),
+    radial-gradient(400px 260px at 0% 100%, rgba(61, 214, 234, .14), transparent 70%),
+    #0a1430;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 18px 40px -20px rgba(30, 58, 138, .55);
+}
+.st-key-hero::before, .st-key-hero::after { content: ""; position: absolute; pointer-events: none; }
+.st-key-hero::before {
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(150, 180, 255, .13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(150, 180, 255, .13) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: linear-gradient(100deg, transparent 15%, #000 75%);
+  mask-image: linear-gradient(100deg, transparent 15%, #000 75%);
+}
+.st-key-hero::after {
+  top: 14px; right: -10px; width: 300px; height: 210px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 210' fill='none' stroke='%2386a8ff' stroke-width='2.5' stroke-linecap='square'%3E%3Cpath d='M10 10h280v190H10z' stroke-width='5'/%3E%3Cpath d='M150 10v70M150 120v80M10 120h60M110 120h40M150 90h140'/%3E%3Cpath d='M70 120a40 40 0 0 1 40-40' stroke-dasharray='3 4' stroke-width='1.5'/%3E%3Cpath d='M70 120v-40' stroke-width='1.5'/%3E%3Cpath d='M150 120a40 40 0 0 0 40 40' stroke-dasharray='3 4' stroke-width='1.5'/%3E%3Cpath d='M40 10h60M40 6h60M190 200h70M190 204h70' stroke-width='1.5'/%3E%3Crect x='190' y='30' width='70' height='40' rx='3' stroke-width='1.5'/%3E%3Ccircle cx='225' cy='50' r='8' stroke-width='1.5'/%3E%3Cpath d='M30 140h50v40H30z' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right top / contain;
+  opacity: .5;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 45%);
+  mask-image: linear-gradient(90deg, transparent, #000 45%);
+}
+.st-key-hero > * { position: relative; z-index: 1; }
+.st-key-hero h1 {
+  color: #ffffff; font-size: 2.6rem; line-height: 1.2; padding: 0;
+  letter-spacing: -0.04em !important; max-width: 13em;
+}
+.st-key-hero [data-testid="stCaptionContainer"] { color: #b3c0e0; font-size: 1rem; max-width: 30em; }
+.st-key-hero [data-testid="stHeaderActionElements"] { display: none; }  /* 제목 옆 링크 아이콘 */
 
 /* 제목: 클수록 자간을 좁힌다 */
-h1 { letter-spacing: -0.05em !important; }
-h2, h3, h4 { letter-spacing: -0.03em !important; }
+h1 { letter-spacing: -0.04em !important; }
+h2, h3, h4 { letter-spacing: -0.02em !important; }
 
-/* 카드: 흰 바탕 + 1px 테두리, 그림자 없음 */
+/* 카드: 흰 바탕 + 1px 테두리 + 옅은 파란 그림자 */
 [data-testid="stForm"], [data-testid="stExpander"] details, [class*="st-key-signal-"] {
   background: #ffffff;
-  border: 1px solid #ebebeb;
-  border-radius: 12px;
+  border: 1px solid #dce3ef;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 12px 32px -18px rgba(30, 58, 138, .22);
 }
 [data-testid="stForm"] { padding: 24px; }
 
-/* 진단한 집 주소 */
+/* 진단한 집 주소: 평면도 도면 번호처럼 위에 파란 선 */
+.st-key-addr-plate { border-top: 4px solid #2563eb; padding-top: 12px; }
 .st-key-addr-plate h3 { font-size: 2rem; line-height: 1.25; }
+
+/* 지표 숫자: 자릿수 폭을 맞춘다 (고정폭 글꼴은 '만 원' 한글과 섞이면 어색해서 쓰지 않음) */
+[data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+
 @media (max-width: 640px) {
+  [data-testid="stMainBlockContainer"] { padding-top: 2rem; }
+  .st-key-hero { padding: 26px 20px 22px; }
+  .st-key-hero h1 { font-size: 1.9rem; }
+  .st-key-hero::after { width: 200px; height: 140px; opacity: .3; }
   .st-key-addr-plate h3 { font-size: 1.5rem; }
-  h1 { font-size: 2rem !important; }
   [data-testid="stForm"] { padding: 16px; }
 }

@@ -22,8 +22,9 @@ ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "mark
 
 st.set_page_config(page_title="청년 집 구하기 진단", page_icon="🏠")
 st.markdown(f"<style>{(Path(__file__).parent / 'style.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-st.title("🏠 청년 집 구하기 진단")
-st.caption("계약 전에 이 집의 위험 신호와 내가 받을 수 있는 주거 지원을 한 번에 확인해요. 서울·경기·인천의 빌라(연립·다세대)와 아파트 대상.")
+with st.container(key="hero"):
+    st.title("청년 집 구하기 진단")
+    st.caption("계약 전에 이 집의 위험 신호와 내가 받을 수 있는 주거 지원을 한 번에 확인해요. 서울·경기·인천의 빌라(연립·다세대)와 아파트 대상.")
 
 if agent.available():  # 키가 없으면 폼만 보인다
     with st.expander("💬 AI에게 말로 물어보기", expanded=bool(st.session_state.get("chat"))):

@@ -1,28 +1,28 @@
-# Vercel(Geist) 디자인: 거의 흰 바탕 + 먹색 한 가지, 얇은 테두리, 장식은 맨 위 그라데이션 하나
+# 청사진 디자인: 옅은 파란 모눈 바탕 + 남색 머리띠(평면도 선), 포인트는 파랑 하나
+# 글꼴은 포트폴리오와 같게: 본문 Noto Sans KR, 숫자·코드 IBM Plex Mono
 [theme]
 base = "light"
-primaryColor = "#171717"
-backgroundColor = "#fafafa"
+primaryColor = "#2563eb"
+backgroundColor = "#f3f6fb"
 secondaryBackgroundColor = "#ffffff"   # 입력칸·카드
-textColor = "#171717"
-linkColor = "#0070f3"
-borderColor = "#ebebeb"
+textColor = "#0f172a"
+linkColor = "#1d4ed8"
+borderColor = "#dce3ef"
 showWidgetBorder = true
-baseRadius = "6px"
+baseRadius = "10px"
 buttonRadius = "full"                  # 알약 모양 버튼
-headingFontWeights = 600
-# Geist에는 한글이 없어 한글은 Pretendard로 넘어간다
-font = "Geist:https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap, Pretendard:https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css, sans-serif"
-codeFont = "Geist Mono:https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap, monospace"
+headingFontWeights = 800
+font = "Noto Sans KR:https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap, sans-serif"
+codeFont = "IBM Plex Mono:https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=swap, monospace"
 # 위험(빨강)·주의(주황)·안내(파랑)
-redColor = "#ee0000"
-redTextColor = "#c50000"
+redColor = "#dc2626"
+redTextColor = "#b91c1c"
 redBackgroundColor = "#fdecec"
-yellowColor = "#f5a623"
-yellowTextColor = "#ab570a"
-yellowBackgroundColor = "#ffefcf"
-blueColor = "#0070f3"
-blueTextColor = "#0761d1"
-blueBackgroundColor = "#eaf3ff"
-greenTextColor = "#0761d1"             # Vercel은 성공도 파랑으로 표시
-greenBackgroundColor = "#eaf3ff"
+yellowColor = "#f59e0b"
+yellowTextColor = "#b45309"
+yellowBackgroundColor = "#fff4dc"
+blueColor = "#2563eb"
+blueTextColor = "#1d4ed8"
+blueBackgroundColor = "#e5edff"
+greenTextColor = "#0f8a63"
+greenBackgroundColor = "#e3f6ee"
