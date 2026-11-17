@@ -147,8 +147,10 @@ with st.form("diagnose"):
     rent = c2.number_input("월세 (만원, 전세면 0)", min_value=0, value=link_num("rent"), step=5)
     c1, c2 = st.columns([2, 1])
     debt = c1.number_input("선순위 채권·근저당 (만원)", min_value=0, step=500,
-                           value=-(-reading.total_won // MAN) if reading else link_num("debt"))
-    debt_unknown = c2.checkbox("모름", value=reading is None and "debt" not in link, help="등기부등본 을구의 채권최고액. 모르면 0원으로 계산하고 경고해요.")
+                           value=-(-reading.total_won // MAN) if reading else link_num("debt"),
+                           help="등기부등본 을구의 채권최고액. 모르면 옆의 '모름'을 체크하면 0원으로 계산하고 경고해요.")
+    # 체크박스에 help를 달면 ? 아이콘이 라벨 안에 들어가 누를 때 체크가 바뀐다 → 설명은 입력칸 쪽에
+    debt_unknown = c2.checkbox("모름", value=reading is None and "debt" not in link)
     official = st.number_input(
         "공시가격 직접 입력 (만원, 선택)", min_value=0, value=link_num("off"), step=500,
         help="부동산공시가격알리미(realtyprice.kr)에서 확인할 수 있어요. 비우면 자동 조회를 시도해요.")
