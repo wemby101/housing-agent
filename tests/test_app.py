@@ -254,6 +254,7 @@ def test_chat_error_is_shown_not_crashing(monkeypatch):
 
 def test_chat_hidden_without_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     at = AppTest.from_file(APP, default_timeout=10)
     at.run()
     assert len(at.chat_input) == 0

@@ -31,8 +31,8 @@ cp .env.example .env   # 키 입력
 | `VWORLD_API_KEY` | vworld.kr | 공동주택 공시가격·호 목록 — 없으면 공시가격을 화면에서 직접 입력 |
 | `VWORLD_DOMAIN` | (선택) | 브이월드 키에 등록한 서비스URL. 기본값 `localhost:8501`, 배포하면 배포 주소 |
 | `YOUTH_POLICY_API_KEY` | youthcenter.go.kr (온통청년) | 이 지역의 다른 청년 주거 정책 |
-| `GEMINI_API_KEY` | aistudio.google.com | AI 상담 모드 (없으면 채팅창이 숨겨지고 폼 진단만 표시) |
-| `AGENT_PROVIDER` | (선택) | `groq`로 바꾸면 `GROQ_API_KEY`로 Groq 사용 |
+| `GEMINI_API_KEY` | aistudio.google.com | AI 상담 모드 (둘 다 없으면 채팅창이 숨겨지고 폼 진단만 표시) |
+| `GROQ_API_KEY` | console.groq.com | (선택) Gemini 무료 한도가 차면 대신 쓰는 예비 AI |
 
 Streamlit Community Cloud에서는 Secrets에 같은 이름으로 최상위(root-level)에 넣으면 환경변수로 읽힙니다.
 
@@ -67,4 +67,4 @@ Streamlit Community Cloud에서는 Secrets에 같은 이름으로 최상위(root
 
 참고용 진단입니다. 계약 전 공인중개사·HUG(1566-9009) 상담으로 확인하세요.
 "안전합니다"라고 판정하지 않으며, 등기부등본(근저당)과 위반건축물 여부는 직접 확인해야 합니다.
-AI 상담은 무료 AI(Gemini)를 쓰므로 입력한 내용이 AI 제공사에 전달됩니다.
+AI 상담은 무료 AI(Gemini, 한도가 차면 Groq)를 쓰므로 입력한 내용이 AI 제공사에 전달됩니다.

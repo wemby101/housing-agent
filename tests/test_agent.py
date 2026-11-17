@@ -18,6 +18,7 @@ from tests.test_building import BONGCHEON
 @pytest.fixture(autouse=True)
 def _key(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "secret-gemini-key")
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)  # 개발자 .env에 있어도 테스트는 Gemini만
 
 
 def fake_diagnosis(*args, **kwargs):
@@ -174,3 +175,35 @@ def test_daily_quota_on_one_model_moves_to_next(monkeypatch):
 
     monkeypatch.setattr(agent.requests, "post", post)
     assert agent.reply([{"role": "user", "content": "안녕"}])[0] == "안녕하세요" and len(models) == 2
+
+
+def test_free_quota_used_up_moves_to_groq_with_plain_messages(monkeypatch):
+    """Gemini 하루 한도가 다 차면 Groq으로 넘어간다. Groq은 Gemini 전용 필드를 받으면 400이라 빼고 보낸다."""
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+    sent = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        sent.append((url, headers, json))
+        if "googleapis" in url:
+            return FakeResponse('{"error": {"code": 429}}', 429)
+        return chat_response({"role": "assistant", "content": "안녕하세요", "reasoning": "생각"})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    earlier = [{"role": "user", "content": "봉천동"},
+               {"role": "assistant", "content": None, "extra_content": {"google": {}}, "tool_calls": [
+                   {"id": "c", "type": "function", "function": {"name": "search_address", "arguments": "{}"},
+                    "extra_content": {"google": {"thought_signature": "sig"}}}]},
+               {"role": "tool", "tool_call_id": "c", "content": "{}"},
+               {"role": "assistant", "content": "어느 집인가요?", "reasoning": "x"}]
+    text, history = agent.reply([*earlier, {"role": "user", "content": "1번"}])
+    assert text == "안녕하세요"
+    url, headers, body = sent[-1]
+    assert "groq" in url and headers["Authorization"] == "Bearer secret-groq-key"
+    assert "extra_content" not in str(body["messages"]) and "reasoning" not in str(body["messages"])
+    assert history[1]["tool_calls"][0]["extra_content"]  # 기록은 그대로 둬서 다음에 Gemini가 쓸 수 있게
+
+
+def test_available_with_only_groq_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY")
+    monkeypatch.setenv("GROQ_API_KEY", "k")
+    assert agent.available()

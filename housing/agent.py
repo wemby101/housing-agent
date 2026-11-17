@@ -1,6 +1,6 @@
 """AI 상담 모드: 말로 물으면 AI가 진단 도구를 골라 부르고 결과를 설명한다. 숫자는 모두 도구(코드)가 계산한다.
 
-AI 제공사는 OpenAI 호환 채팅 API(Gemini·Groq)를 쓴다. AGENT_PROVIDER로 고른다."""
+AI 제공사는 OpenAI 호환 채팅 API를 쓴다. 키가 있는 제공사를 Gemini → Groq 순서로 쓰고, 한도가 차면 다음으로 넘어간다."""
 import json
 import os
 from datetime import date
@@ -13,12 +13,13 @@ from housing.official_price import list_units
 from housing.pipeline import diagnose
 from housing.policies import Profile
 
-PROVIDERS = {  # 이름: (채팅 API 주소, .env 키 이름, 모델 — 앞 모델이 붐비거나(503) 한도가 차면(429) 다음 모델)
-    # Gemini 무료 등급은 최신 Flash가 자주 붐비고(2026-11-17: 3.7·3.8은 503), 모델마다 하루 20회 한도라 여럿을 돌린다
-    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "GEMINI_API_KEY",
-               ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"]),
-    "groq": ("https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY", ["openai/gpt-oss-120b"]),
-}
+PROVIDERS = [  # (채팅 API 주소, .env 키 이름, 모델) — 앞 모델이 붐비거나(503) 한도가 차면(429) 다음 모델
+    # Gemini 무료 등급은 답이 가장 깔끔하지만 모델마다 하루 20회라 여럿을 돌린다 (2026-11-17: 3.7·3.8은 503)
+    ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "GEMINI_API_KEY",
+     ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"]),
+    # Groq 무료 등급은 분당 한도가 작아 예비로만 쓴다. gpt-oss는 숫자를 지어내거나 틀려서(2026-11-17 비교) qwen만
+    ("https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY", ["qwen/qwen3.8-27b"]),
+]
 MAX_STEPS = 6  # 도구 호출이 끝없이 이어지지 않게
 MAN = 10_000
 LEVELS = {"danger": "위험", "caution": "주의", "info": "참고"}
@@ -32,7 +33,7 @@ SYSTEM = """너는 청년의 전월세 계약 전 위험을 진단해 주는 상
 - 지원 정책은 나이와 세전 연소득을 알아야 찾을 수 있어. 진단을 먼저 하고, 모르면 나중에 물어봐.
 - 주소 검색 결과가 여러 개고 어느 집인지 애매하면 사용자에게 골라 달라고 해.
 - 도구가 error를 주면 무엇이 필요한지 사용자에게 쉽게 말해.
-- 답은 한국어로 짧게: 한 줄 결론 → 핵심 이유 2~3개 → 계약 전에 할 일. 제목(#)은 쓰지 말고 굵은 글씨와 목록만 써. 금액은 "2억 2,000만 원"처럼 읽기 쉽게.
+- 답은 한국어(한글)로만 짧게 써. 영어·중국어·태국어 등 다른 나라 글자나 단어를 섞지 마. 순서는 한 줄 결론 → 핵심 이유 2~3개 → 계약 전에 할 일. 제목(#)은 쓰지 말고 굵은 글씨와 목록만 써. 금액은 "2억 2,000만 원"처럼 읽기 쉽게.
 - 법률 자문이 아니라 참고용이라는 점, 계약 전 공인중개사·HUG(1566-9009) 확인을 마지막에 한 줄로 안내해."""
 
 TOOLS = [
@@ -66,12 +67,21 @@ class AgentError(Exception):
     pass
 
 
-def _provider():
-    return PROVIDERS[os.environ.get("AGENT_PROVIDER", "gemini")]
+def _models():
+    return [(url, os.environ[key], m) for url, key, models in PROVIDERS if os.environ.get(key) for m in models]
 
 
 def available() -> bool:
-    return bool(os.environ.get(_provider()[1]))
+    return bool(_models())
+
+
+def _plain(m: dict, gemini: bool) -> dict:
+    """Gemini는 사고 서명(extra_content)을 돌려받아야 하고, 다른 제공사는 모르는 필드가 있으면 400을 낸다."""
+    extra = ("extra_content",) if gemini else ()
+    out = {k: v for k, v in m.items() if k in ("role", "content", "tool_calls", "tool_call_id", *extra)}
+    if out.get("tool_calls"):
+        out["tool_calls"] = [{k: v for k, v in c.items() if k in ("id", "type", "function", *extra)} for c in out["tool_calls"]]
+    return out
 
 
 def _man(won):
@@ -146,14 +156,11 @@ def run_tool(name: str, arguments: str) -> dict:
 
 
 def _chat(messages: list[dict]) -> dict:
-    url, key_name, models = _provider()
-    key = os.environ.get(key_name, "")
-    if os.environ.get("AGENT_MODEL"):
-        models = [os.environ["AGENT_MODEL"]]
-    for model in models:
+    for url, key, model in _models():
+        gemini = "googleapis" in url
         try:
             resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=90, json={
-                "model": model, "messages": messages, "tools": TOOLS, "reasoning_effort": "low"})
+                "model": model, "messages": [_plain(m, gemini) for m in messages], "tools": TOOLS, "reasoning_effort": "low"})
         except requests.RequestException as e:  # 메시지에 키가 든 헤더가 섞일 수 있어 그대로 쓰지 않는다
             raise AgentError(f"AI 연결 실패 ({type(e).__name__})") from None
         if resp.status_code not in (429, 503):
@@ -161,7 +168,7 @@ def _chat(messages: list[dict]) -> dict:
     if resp.status_code == 503:
         raise AgentError("AI 서버가 붐벼요. 잠시 뒤에 다시 물어봐 주세요.")
     if resp.status_code == 429:
-        raise AgentError("오늘 무료 AI 사용 한도를 다 썼어요. 아래 폼으로 진단해 주세요.")
+        raise AgentError("무료 AI 사용 한도에 걸렸어요. 1분쯤 뒤에 다시 물어보거나 아래 폼으로 진단해 주세요.")
     if resp.status_code >= 400:
         raise AgentError(f"AI 응답 오류 (HTTP {resp.status_code})")
     try:
