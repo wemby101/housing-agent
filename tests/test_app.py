@@ -80,7 +80,7 @@ def test_full_result_renders(monkeypatch):
     bld = BuildingInfo("공동주택", "다세대주택", 9, 2003, True)
     prof = Profile(26, 30_000_000, False, True, 220_000_000, 0)
     full = Diagnosis(BONGCHEON, bld, official, mkt, assess_risk(220_000_000, 50_000_000, official, mkt, bld),
-                     match_policies(prof, load_policies()), {})
+                     match_policies(prof, load_policies()), {}, deposit_won=220_000_000, senior_debt_won=50_000_000)
     monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
     monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: full)
     at = submit(deposit=22000, debt=5000)
@@ -340,3 +340,29 @@ def test_no_income_locks_income_at_zero(calls):
     assert at.number_input[INCOME].value == 0 and at.number_input[INCOME].disabled
     next(c for c in at.checkbox if "소득 없음" in c.label).uncheck().run()
     assert not at.number_input[INCOME].disabled and at.number_input[INCOME].value is None  # 풀면 다시 직접 입력
+
+
+def test_monthly_contract_has_no_switch_to_monthly_section(monkeypatch):
+    """이미 월세 계약이면 '보증금을 낮추고 월세로 바꾸면'은 뜻이 없어 보여 주지 않는다."""
+    from dataclasses import replace
+    at = jeonse_result(monkeypatch)
+    d = replace(at.session_state["diagnosis"], deposit_won=50_000_000, monthly_rent_won=1_500_000)
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: d)
+    at.number_input[DEPOSIT].set_value(5000)
+    at.number_input[RENT].set_value(150)
+    at.button[0].click().run()
+    assert not any("월세로 바꾸면" in m.value for m in at.markdown)
+    assert not any("보증금" in s.label for s in at.slider)
+
+
+def test_negotiation_target_hidden_when_deposit_already_below(monkeypatch):
+    """보증금 5천만 원짜리 월세에 '협상 목표 7억 이하'를 보여 주면 헷갈린다."""
+    from dataclasses import replace
+    at = jeonse_result(monkeypatch)
+    d = at.session_state["diagnosis"]
+    small = replace(d, deposit_won=50_000_000, monthly_rent_won=1_500_000)
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: small)
+    at.number_input[DEPOSIT].set_value(5000)
+    at.number_input[RENT].set_value(150)
+    at.button[0].click().run()
+    assert not any(c.label.startswith("보증금 협상 목표") for c in at.checkbox)

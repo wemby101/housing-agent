@@ -229,7 +229,7 @@ if d is not None:
                    f"{d.building.approval_year or '?'}년 사용승인")
 
     # 2-1) 보증금을 바꿔 보면: 같은 집 데이터로 위험만 다시 계산한다 (공공데이터는 다시 부르지 않음)
-    if d.deposit_won >= 100 * MAN and d.market is not None:
+    if d.deposit_won >= 100 * MAN and d.monthly_rent_won == 0 and d.market is not None:  # 전세 계약만
         st.markdown("#### 보증금을 낮추고 월세로 바꾸면")
         top_man = d.deposit_won // MAN
         key = f"whatif-{d.address.pnu}-{d.deposit_won}"  # 새로 진단하면 슬라이더도 처음부터
@@ -293,7 +293,7 @@ if d is not None:
     # 4) 체크리스트
     st.markdown("#### 해야 할 일")
     items = []
-    if r.target_deposit_won is not None:
+    if r.target_deposit_won is not None and d.deposit_won > r.target_deposit_won:  # 이미 목표 이하면 협상할 게 없다
         parts = []
         if r.guarantee_limit_won is not None:
             parts.append(f"보증보험 한도 {man(max(r.guarantee_limit_won, 0))} 원 (공시가격 × 126% − 선순위 채권)")
