@@ -37,16 +37,24 @@ def test_falls_back_to_same_dong_with_area_and_year_window():
         t(30_000, area=100.0),                 # 같은 지번 1건 (면적 범위 밖)
         t(20_000, jibun="5-1", area=45.0),     # 포함
         t(18_000, jibun="9", year=2007),       # 포함
+        t(19_000, jibun="9-2", area=36.0),     # 포함
         t(20_000, jibun="7", area=50.0),       # 면적 +25% → 제외
         t(20_000, jibun="8", year=1995),       # 건축년도 -8 → 제외
         t(20_000, jibun="3", umd="신림동"),     # 다른 동 → 제외
     ]
     e = estimate_market_price(trades, BONGCHEON, 40.0, 2003)
-    assert e.basis == "same_dong" and e.comp_count == 2
+    assert e.basis == "same_dong" and e.comp_count == 3
 
 
-def test_fewer_than_two_comps_returns_none():
-    assert estimate_market_price([t(20_000)], BONGCHEON, 40.0, 2003) is None
+def test_fewer_than_three_comps_returns_none():
+    assert estimate_market_price([t(20_000), t(24_000)], BONGCHEON, 40.0, 2003) is None
+
+
+def test_two_odd_same_jibun_trades_fall_back_to_same_dong():
+    """봉천하이빌 실제 사례: 같은 지번 2건(㎡당 1,400만·1,950만)만으로는 시세가 공시가격의 2.5배로 튀었다."""
+    trades = [t(72_800, area=50.71), t(99_000, area=50.71)] + [t(20_000, jibun=j) for j in ("2", "3", "4")]
+    e = estimate_market_price(trades, BONGCHEON, 40.0, 2003)
+    assert (e.basis, e.comp_count, e.price_won) == ("same_dong", 3, 200_000_000)
 
 
 def test_get_market_price_requests_24_months(monkeypatch):
@@ -96,7 +104,7 @@ def test_one_failed_month_does_not_drop_the_rest(monkeypatch):
     def fetch(lawd, ym, kind):
         if ym == "202605":
             raise DataSourceError("일시 오류")
-        return [t(16_000), t(24_000)] if ym == "202611" else []
+        return [t(16_000), t(20_000), t(24_000)] if ym == "202611" else []
 
     monkeypatch.setattr(market, "fetch_trades", fetch)
     assert get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16)).price_won == 200_000_000

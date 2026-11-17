@@ -82,6 +82,15 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
             signals.append(Signal(
                 "NO_OFFICIAL_PRICE", "info", "공시가격을 몰라 보증보험 한도를 계산하지 못했어요",
                 "부동산공시가격알리미(realtyprice.kr)에서 확인해 입력하면 계산할 수 있어요.", "-"))
+        if market is not None and official is not None and market.price_won > official.price_won * 2:
+            # 공동주택 공시가격은 보통 시세의 60~70%라, 시세가 2배를 넘으면 특이 거래가 섞인 것으로 본다
+            signals.append(Signal(
+                "MARKET_DOUBTFUL", "caution",
+                f"추정 시세가 공시가격의 {market.price_won / official.price_won:.1f}배라 믿기 어려워요",
+                f"추정 시세 {man(market.price_won)} 원 (최근 {market.months}개월 비슷한 거래 {market.comp_count}건). "
+                "특이한 거래가 섞였을 수 있어 깡통전세 비율 계산에서 뺐어요. 주변 중개사무소나 KB부동산 시세로 확인하세요.",
+                "국토교통부 실거래가 · 공시가격 비교"))
+            market, market_failed = None, True  # 비율·목표액에 쓰지 않고, '거래 부족' 안내도 띄우지 않는다
         if market is not None:
             ratio = (deposit_won + debt) / market.price_won  # 선순위 채권도 내 보증금보다 먼저 갚는 돈
             if ratio >= 0.7:
@@ -96,7 +105,7 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
         elif not market_failed:  # 조회 실패는 화면의 오류 안내가 설명한다
             signals.append(Signal(
                 "NO_MARKET_DATA", "info", "비슷한 매매 거래가 부족해 시세를 추정하지 못했어요",
-                "최근 24개월 같은 건물 또는 같은 동의 비슷한 집 거래가 2건 미만이에요.", "국토교통부 실거래가"))
+                "최근 24개월 같은 건물 또는 같은 동의 비슷한 집 거래가 3건 미만이에요.", "국토교통부 실거래가"))
         caps = [c for c in (limit, market.price_won * 7 // 10 - debt if market else None) if c is not None]
         target = max(min(caps), 0) if caps else None
 

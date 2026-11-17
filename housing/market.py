@@ -16,6 +16,7 @@ TRADE_URLS = {  # 두 API는 응답 필드가 같다. 활용신청은 따로 해
 }
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
 MONTHS = 24
+MIN_COMPS = 3  # 2건이면 특이 거래 하나가 시세를 크게 흔든다 (봉천하이빌: 공시가격의 2.5배)
 PAGE_SIZE = 1000
 
 
@@ -95,14 +96,14 @@ def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, bu
 
     same_dong = [tr for tr in trades if tr.umd_name == addr.emd_name and tr.area_m2 > 0]
     same_jibun = [tr for tr in same_dong if tr.jibun == _jibun_of(addr)]
-    if len(same_jibun) >= 2:
+    if len(same_jibun) >= MIN_COMPS:
         return build(same_jibun, "same_jibun")
     similar = [
         tr for tr in same_dong
         if abs(tr.area_m2 - area_m2) <= area_m2 * 0.2
         and (build_year is None or (tr.build_year is not None and abs(tr.build_year - build_year) <= 5))
     ]
-    return build(similar, "same_dong") if len(similar) >= 2 else None
+    return build(similar, "same_dong") if len(similar) >= MIN_COMPS else None
 
 
 def get_market_price(addr: Address, area_m2: float, build_year: int | None, today: date,

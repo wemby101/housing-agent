@@ -133,3 +133,10 @@ def test_apartment_official_limit_is_only_caution():
     s = next(s for s in assess_risk(220_000_000, 0, OfficialPrice(160_000_000, 2026, "x"), None, apt).signals
              if s.code == "GUARANTEE_BLOCKED")
     assert s.level == "caution" and "KB" in s.detail and s.title.startswith("공시가격 기준")
+
+
+def test_market_far_above_official_is_not_trusted():
+    """추정 시세가 공시가격의 2배를 넘으면 특이 거래로 보고 비율·목표액에 쓰지 않는다 (위험을 가리지 않게)."""
+    r = assess_risk(220_000_000, 0, OfficialPrice(100_000_000, 2026, "x"), market(250_000_000), residential)
+    assert "MARKET_DOUBTFUL" in codes(r) and not codes(r) & {"HIGH_RATIO", "CAUTION_RATIO"}
+    assert r.deposit_ratio is None and r.target_deposit_won == 126_000_000
