@@ -213,3 +213,44 @@ def test_youth_policy_with_blank_support_does_not_crash(calls, monkeypatch):
     monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: d)
     at = submit()
     assert not at.exception
+
+
+def test_chat_answers_and_keeps_history(monkeypatch):
+    import housing.agent
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    asked = []
+
+    def fake_reply(history):
+        asked.append(history)
+        return "깡통전세 위험이 커요.", history + [{"role": "assistant", "content": "깡통전세 위험이 커요."}]
+
+    monkeypatch.setattr(housing.agent, "reply", fake_reply)
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.chat_input[0].set_value("봉천동 1-70 201호 전세 2억2천 괜찮아?").run()
+    assert asked[-1][-1] == {"role": "user", "content": "봉천동 1-70 201호 전세 2억2천 괜찮아?"}
+    texts = [m.markdown[0].value for m in at.chat_message]
+    assert texts == ["봉천동 1-70 201호 전세 2억2천 괜찮아?", "깡통전세 위험이 커요."]
+    at.chat_input[0].set_value("월세면?").run()
+    assert len(asked[-1]) == 3  # 이전 대화가 함께 간다
+
+
+def test_chat_error_is_shown_not_crashing(monkeypatch):
+    import housing.agent
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+
+    def fail(history):
+        raise housing.agent.AgentError("무료 AI 사용 한도에 걸렸어요.")
+
+    monkeypatch.setattr(housing.agent, "reply", fail)
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.chat_input[0].set_value("안녕").run()
+    assert not at.exception and any("한도" in e.value for e in at.error)
+
+
+def test_chat_hidden_without_key(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    assert len(at.chat_input) == 0

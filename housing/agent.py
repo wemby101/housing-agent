@@ -1,0 +1,183 @@
+"""AI 상담 모드: 말로 물으면 AI가 진단 도구를 골라 부르고 결과를 설명한다. 숫자는 모두 도구(코드)가 계산한다.
+
+AI 제공사는 OpenAI 호환 채팅 API(Gemini·Groq)를 쓴다. AGENT_PROVIDER로 고른다."""
+import json
+import os
+from datetime import date
+
+import requests
+
+from housing.address import search_address
+from housing.errors import DataSourceError
+from housing.official_price import list_units
+from housing.pipeline import diagnose
+from housing.policies import Profile
+
+PROVIDERS = {  # 이름: (채팅 API 주소, .env 키 이름, 모델 — 앞 모델이 붐비면(503) 다음 모델)
+    # Gemini 무료 등급은 최신 Flash가 자주 붐빈다 (2026-11-17: 3.7·3.8은 503, 3.6·3.5는 1.5초)
+    "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "GEMINI_API_KEY",
+               ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"]),
+    "groq": ("https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY", ["openai/gpt-oss-120b"]),
+}
+MAX_STEPS = 6  # 도구 호출이 끝없이 이어지지 않게
+MAN = 10_000
+LEVELS = {"danger": "위험", "caution": "주의", "info": "참고"}
+
+SYSTEM = """너는 청년의 전월세 계약 전 위험을 진단해 주는 상담사야. 서울·경기·인천의 빌라(연립·다세대)와 아파트만 진단할 수 있어.
+
+규칙:
+- 금액·비율·한도 같은 숫자는 반드시 도구 결과에 있는 값만 써. 직접 계산하거나 추정하지 마.
+- 보증금을 권할 때는 safe_deposit_target_man 이하로만 권해. 그보다 큰 금액이나 범위를 제시하지 마.
+- 진단에는 주소(도로명이나 지번), 호수, 보증금, 월세가 필요해. 빠진 게 있으면 짧게 물어봐. 근저당을 모르면 모른다고 넘겨.
+- 지원 정책은 나이와 세전 연소득을 알아야 찾을 수 있어. 진단을 먼저 하고, 모르면 나중에 물어봐.
+- 주소 검색 결과가 여러 개고 어느 집인지 애매하면 사용자에게 골라 달라고 해.
+- 도구가 error를 주면 무엇이 필요한지 사용자에게 쉽게 말해.
+- 답은 한국어로 짧게: 한 줄 결론 → 핵심 이유 2~3개 → 계약 전에 할 일. 제목(#)은 쓰지 말고 굵은 글씨와 목록만 써. 금액은 "2억 2,000만 원"처럼 읽기 쉽게.
+- 법률 자문이 아니라 참고용이라는 점, 계약 전 공인중개사·HUG(1566-9009) 확인을 마지막에 한 줄로 안내해."""
+
+TOOLS = [
+    {"type": "function", "function": {
+        "name": "search_address",
+        "description": "주소를 검색해 후보 목록을 돌려준다. 어느 집인지 확인할 때 쓴다.",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string", "description": "도로명이나 지번 주소, 건물명 (예: 봉천동 1-70)"}},
+            "required": ["query"]}}},
+    {"type": "function", "function": {
+        "name": "diagnose_house",
+        "description": "집 한 채의 계약 위험(깡통전세·보증보험 한도·주변 전세 시세·건축물대장)과 받을 수 있는 청년 지원 정책을 공공데이터로 계산한다.",
+        "parameters": {"type": "object", "properties": {
+            "address": {"type": "string", "description": "주소 검색어"},
+            "pick": {"type": "integer", "description": "search_address 후보 번호 (기본 0)"},
+            "dong": {"type": "string", "description": "동 (아파트 101동 등, 없으면 비움)"},
+            "ho": {"type": "string", "description": "호수 (예: 201)"},
+            "area_m2": {"type": "number", "description": "전용면적㎡. 모르면 비움 (공시자료에서 찾음)"},
+            "deposit_man": {"type": "integer", "description": "보증금 (만원)"},
+            "monthly_rent_man": {"type": "integer", "description": "월세 (만원, 전세면 0)"},
+            "senior_debt_man": {"type": "integer", "description": "근저당 등 선순위 채권 (만원). 모르면 비움"},
+            "age": {"type": "integer", "description": "만 나이. 모르면 비움"},
+            "income_man": {"type": "integer", "description": "세전 연소득 (만원, 기혼이면 부부 합산). 모르면 비움"},
+            "married": {"type": "boolean"},
+            "homeless": {"type": "boolean", "description": "무주택 여부 (기본 true)"}},
+            "required": ["address", "ho", "deposit_man"]}}},
+]
+
+
+class AgentError(Exception):
+    pass
+
+
+def _provider():
+    return PROVIDERS[os.environ.get("AGENT_PROVIDER", "gemini")]
+
+
+def available() -> bool:
+    return bool(os.environ.get(_provider()[1]))
+
+
+def _man(won):
+    return None if won is None else round(won / MAN)
+
+
+def search_houses(query: str) -> dict:
+    found = search_address(query, limit=10)
+    return {"results": [{"pick": i, "address": a.road_addr, "jibun": a.jibun_addr, "building": a.building_name}
+                        for i, a in enumerate(found)]}
+
+
+def diagnose_house(address: str, ho: str, deposit_man: int, pick: int = 0, dong: str = "", area_m2: float | None = None,
+                   monthly_rent_man: int = 0, senior_debt_man: int | None = None, age: int | None = None,
+                   income_man: int | None = None, married: bool = False, homeless: bool = True) -> dict:
+    found = search_address(address, limit=10)
+    if not found:
+        return {"error": "주소를 찾지 못했어요. 도로명이나 지번을 다시 확인해 달라고 하세요."}
+    addr = found[pick]
+    ho = str(ho).strip().removesuffix("호").strip()
+    dong = str(dong or "").strip().removesuffix("동").strip()
+    if not area_m2:
+        try:
+            units = list_units(addr)
+        except DataSourceError:
+            units = []
+        unit = next((u for u in units if u.ho == ho and (not dong or u.dong.removesuffix("동") == dong)), None)
+        if unit is None or not unit.area_m2:
+            return {"error": f"{addr.road_addr} {ho}호의 전용면적을 공시자료에서 찾지 못했어요. 전용면적(㎡)을 물어보세요."}
+        dong, area_m2 = unit.dong, unit.area_m2
+    known = age is not None and income_man is not None
+    profile = Profile(age or 26, (income_man or 0) * MAN, married, homeless, deposit_man * MAN, monthly_rent_man * MAN, area_m2)
+    d = diagnose(addr, dong, ho, float(area_m2), deposit_man * MAN, monthly_rent_man * MAN,
+                 None if senior_debt_man is None else senior_debt_man * MAN, profile, today=date.today())
+    r = d.risk
+    out = {
+        "address": f"{addr.road_addr} {dong} {ho}호".replace("  ", " "), "area_m2": area_m2,
+        "headline": r.headline,
+        "signals": [{"level": LEVELS[s.level], "title": s.title, "detail": s.detail} for s in r.signals],
+        "official_price_man": _man(d.official.price_won) if d.official else None,
+        "estimated_market_price_man": _man(d.market.price_won) if d.market else None,
+        "nearby_jeonse_price_man": _man(d.jeonse.price_won) if d.jeonse else None,
+        "deposit_to_market_ratio_pct": round(r.deposit_ratio * 100) if r.deposit_ratio is not None else None,
+        "guarantee_limit_man": _man(r.guarantee_limit_won),
+        "safe_deposit_target_man": _man(r.target_deposit_won),
+        "building": f"{d.building.main_purpose} {d.building.etc_purpose} {d.building.approval_year or ''}년" if d.building else None,
+        "data_errors": d.errors,
+        "other_local_youth_housing_policies": [y.name for y in d.youth],
+    }
+    if known:
+        out["policies"] = [{"name": m.policy["name"], "status": "조건 충족" if m.status == "eligible" else "추가 확인 필요",
+                            "max_benefit_man": _man(m.policy["benefit_max_won"]), "benefit": m.policy["benefit_text"]}
+                           for m in d.policies]
+    else:
+        out["policies_note"] = "나이와 세전 연소득을 모르면 지원 정책을 찾을 수 없어요."
+    return out
+
+
+def run_tool(name: str, arguments: str) -> dict:
+    """도구 실패는 예외 대신 {"error": ...}로 돌려 AI가 사용자에게 설명하게 한다."""
+    fn = {"search_address": search_houses, "diagnose_house": diagnose_house}.get(name)
+    if fn is None:
+        return {"error": f"없는 도구예요: {name}"}
+    try:
+        return fn(**json.loads(arguments or "{}"))
+    except DataSourceError as e:
+        return {"error": str(e)}
+    except (ValueError, TypeError, IndexError) as e:  # 잘못된 인자·후보 번호
+        return {"error": f"도구 인자가 잘못됐어요 ({type(e).__name__}: {e})"}
+
+
+def _chat(messages: list[dict]) -> dict:
+    url, key_name, models = _provider()
+    key = os.environ.get(key_name, "")
+    if os.environ.get("AGENT_MODEL"):
+        models = [os.environ["AGENT_MODEL"]]
+    for model in models:
+        try:
+            resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=90, json={
+                "model": model, "messages": messages, "tools": TOOLS, "reasoning_effort": "low"})
+        except requests.RequestException as e:  # 메시지에 키가 든 헤더가 섞일 수 있어 그대로 쓰지 않는다
+            raise AgentError(f"AI 연결 실패 ({type(e).__name__})") from None
+        if resp.status_code != 503:
+            break
+    if resp.status_code == 503:
+        raise AgentError("AI 서버가 붐벼요. 잠시 뒤에 다시 물어봐 주세요.")
+    if resp.status_code == 429:
+        raise AgentError("무료 AI 사용 한도에 걸렸어요. 1분쯤 뒤에 다시 물어봐 주세요.")
+    if resp.status_code >= 400:
+        raise AgentError(f"AI 응답 오류 (HTTP {resp.status_code})")
+    try:
+        return resp.json()["choices"][0]["message"]
+    except (ValueError, KeyError, IndexError):
+        raise AgentError("AI 응답을 해석하지 못했어요") from None
+
+
+def reply(history: list[dict]) -> tuple[str, list[dict]]:
+    """대화 기록(user/assistant/tool 메시지)을 받아 답과 늘어난 기록을 돌려준다."""
+    messages = [{"role": "system", "content": SYSTEM}, *history]
+    for _ in range(MAX_STEPS):
+        msg = _chat(messages)
+        messages.append(msg)  # 받은 그대로: Gemini의 사고 서명(extra_content)을 다음 요청에 돌려줘야 한다
+        calls = msg.get("tool_calls") or []
+        if not calls:
+            return msg.get("content") or "", messages[1:]
+        for c in calls:
+            result = run_tool(c["function"]["name"], c["function"].get("arguments", "{}"))
+            messages.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": json.dumps(result, ensure_ascii=False)})
+    return "질문을 처리하는 단계가 너무 길어졌어요. 주소·호수·보증금을 한 번에 적어 다시 물어봐 주세요.", messages[1:]

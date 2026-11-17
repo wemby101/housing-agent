@@ -5,6 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from housing import agent
 from housing.address import search_address
 from housing.errors import DataSourceError
 from housing.official_price import list_units
@@ -23,6 +24,24 @@ st.set_page_config(page_title="청년 집 구하기 진단", page_icon="🏠")
 st.markdown(f"<style>{(Path(__file__).parent / 'style.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
 st.title("🏠 청년 집 구하기 진단")
 st.caption("계약 전에 이 집의 위험 신호와 내가 받을 수 있는 주거 지원을 한 번에 확인해요. 서울·경기·인천의 빌라(연립·다세대)와 아파트 대상.")
+
+if agent.available():  # 키가 없으면 폼만 보인다
+    with st.expander("💬 AI에게 말로 물어보기", expanded=bool(st.session_state.get("chat"))):
+        st.caption("예: \"봉천동 1-70 201호 전세 2억 2천인데 괜찮아? 나는 27살, 연봉 3천이야\"  \n"
+                   "숫자는 공공데이터로 계산한 값만 써요. 무료 AI를 쓰고 있어 입력한 내용이 AI 제공사에 전달돼요.")
+        chat = st.session_state.setdefault("chat", [])
+        talk = st.container()  # 새 질문·답도 입력칸 위에 이어 붙도록
+        for m in chat:
+            if m["role"] in ("user", "assistant") and m.get("content"):
+                talk.chat_message(m["role"]).markdown(m["content"])
+        if question := st.chat_input("집 주소와 계약 조건을 적어 주세요"):
+            talk.chat_message("user").markdown(question)
+            with talk.chat_message("assistant"), st.spinner("AI가 공공데이터를 조회하고 있어요…"):
+                try:
+                    answer, st.session_state["chat"] = agent.reply([*chat, {"role": "user", "content": question}])
+                    st.markdown(answer)
+                except agent.AgentError as e:
+                    st.error(str(e))
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
