@@ -11,6 +11,10 @@ from housing.errors import DataSourceError
 OK_CODES = {"00", "000"}  # 구 API "00", 2024년 이후 실거래가 API "000"
 
 
+class _Transient(DataSourceError):
+    """끊김·5xx·HTML 오류 페이지처럼 다시 부르면 대개 되는 실패 (키·결과코드 오류는 아님)."""
+
+
 def _xml_body(text: str) -> dict:
     try:
         root = ET.fromstring(text)
@@ -18,7 +22,9 @@ def _xml_body(text: str) -> dict:
         root = None
     if root is None or root.tag != "response":
         msg = re.search(r"<errMsg>(.*?)</errMsg>", text) or re.search(r"<resultMsg>(.*?)</resultMsg>", text)
-        raise DataSourceError(f"공공데이터 오류: {msg.group(1) if msg else '응답 해석 실패'}")
+        if not msg:
+            raise _Transient("공공데이터 오류: 응답 해석 실패")
+        raise DataSourceError(f"공공데이터 오류: {msg.group(1)}")
     if root.findtext("header/resultCode", "").strip() not in OK_CODES:
         raise DataSourceError(f"공공데이터 오류: {root.findtext('header/resultCode')} {root.findtext('header/resultMsg')}")
     items = [{c.tag: (c.text or "").strip() for c in item} for item in root.iterfind("body/items/item")]
@@ -26,20 +32,27 @@ def _xml_body(text: str) -> dict:
 
 
 def call_datagokr(url: str, params: dict) -> dict:
-    """응답의 response.body를 돌려준다. 키 오류·결과코드 오류는 DataSourceError."""
+    """응답의 response.body를 돌려준다. 키 오류·결과코드 오류는 DataSourceError. 일시 오류는 한 번 다시 부른다."""
+    try:
+        return _call(url, params)
+    except _Transient:
+        return _call(url, params)
+
+
+def _call(url: str, params: dict) -> dict:
     query = {"serviceKey": get_key("DATA_GO_KR_KEY"), "_type": "json", **params}
     try:
         resp = demo.get(url, query, timeout=15)
     except requests.RequestException as e:  # 메시지에 serviceKey가 든 URL이 있으므로 그대로 쓰지 않는다
         status = getattr(e.response, "status_code", None)
-        raise DataSourceError(f"공공데이터 호출 실패 ({f'HTTP {status}' if status else type(e).__name__})") from None
+        raise (_Transient if status is None or status >= 500 else DataSourceError)(f"공공데이터 호출 실패 ({f'HTTP {status}' if status else type(e).__name__})") from None
     text = resp.text.strip()
     if text.startswith("<"):  # 실거래가 API는 _type=json을 무시하고 XML로 줄 수 있다
         return _xml_body(text)
     try:
         data = resp.json()
     except ValueError as e:
-        raise DataSourceError(f"공공데이터 응답 해석 실패: {text[:200]}") from e
+        raise _Transient(f"공공데이터 응답 해석 실패: {text[:200]}") from e
     if "OpenAPI_ServiceResponse" in data:
         header = data["OpenAPI_ServiceResponse"].get("cmmMsgHeader", {})
         raise DataSourceError(f"공공데이터 오류: {header.get('errMsg')} ({header.get('returnAuthMsg')})")

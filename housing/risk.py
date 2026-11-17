@@ -69,7 +69,8 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
         if official is not None:
             limit = official.price_won * 126 // 100 - debt
             if deposit_won > limit:
-                apt = building is not None and building.is_apartment  # 아파트는 HUG가 KB·부동산테크 시세를 먼저 쓴다
+                # 아파트는 HUG가 KB·부동산테크 시세를 먼저 쓴다. 건축물대장이 없으면 아파트 실거래로 판단한 결과를 쓴다
+                apt = building.is_apartment if building is not None else (market is not None and market.kind == "apt")
                 over = man(deposit_won - max(limit, 0))
                 signals.append(Signal(
                     "GUARANTEE_BLOCKED", "caution" if apt else "danger",

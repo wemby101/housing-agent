@@ -94,3 +94,31 @@ def test_youth_policies_attached_and_failure_isolated(sources, monkeypatch):
     monkeypatch.setattr(pipeline, "get_youth_policies", boom)
     d = run()
     assert d.youth == [] and "youth" in d.errors and d.policies  # 정책표 매칭은 그대로
+
+
+def test_building_failure_guesses_apartment_from_same_lot_trades(sources, monkeypatch):
+    """건축물대장이 실패해도 같은 지번에 아파트 거래가 있으면 아파트로 본다 (송도 시연 중 실제로 겪음)."""
+    monkeypatch.setattr(pipeline, "get_building", boom)
+    kinds = []
+
+    def market(addr, area, year, today, kind):
+        kinds.append(kind)
+        return MarketEstimate(800_000_000, 92, "same_jibun", 24, kind) if kind == "apt" else None
+
+    monkeypatch.setattr(pipeline, "get_market_price", market)
+    d = run(manual_official_won=400_000_000, deposit_won=600_000_000)
+    assert kinds == ["apt"] and d.market.kind == "apt"
+    assert next(s for s in d.risk.signals if s.code == "GUARANTEE_BLOCKED").level == "caution"
+
+
+def test_building_failure_falls_back_to_villa_without_same_lot_apartment_trades(sources, monkeypatch):
+    monkeypatch.setattr(pipeline, "get_building", boom)
+    kinds = []
+
+    def market(addr, area, year, today, kind):
+        kinds.append(kind)
+        return MarketEstimate(250_000_000, 5, "same_dong", 24, kind)  # 같은 동 아파트 거래는 빌라 근거가 안 된다
+
+    monkeypatch.setattr(pipeline, "get_market_price", market)
+    d = run(manual_official_won=160_000_000)
+    assert kinds == ["apt", "rh"] and d.market.kind == "rh"

@@ -133,3 +133,19 @@ def test_complex_skips_guardhouse_and_takes_largest_residential(monkeypatch):
     body["response"]["body"]["items"]["item"] = [guard, apt]
     _serve(monkeypatch, json.dumps(body))
     assert get_building(BONGCHEON).is_apartment
+
+
+def test_garbled_response_is_retried_once(monkeypatch):
+    """건축물대장 API는 가끔 HTML 오류 페이지를 준다 — 한 번 더 부르면 대개 정상이다."""
+    pages = ["<html><body>503 Service Unavailable</body></html>", RTMS_XML_OK]
+    calls = []
+    monkeypatch.setattr(datagokr.requests, "get", lambda url, params=None, timeout=None: calls.append(1) or FakeResponse(pages.pop(0)))
+    assert int(call_datagokr("https://example", {})["totalCount"]) == 2 and len(calls) == 2
+
+
+def test_key_error_is_not_retried(monkeypatch):
+    calls = []
+    monkeypatch.setattr(datagokr.requests, "get", lambda url, params=None, timeout=None: calls.append(1) or FakeResponse(fixture_text("datagokr_key_error.xml")))
+    with pytest.raises(DataSourceError):
+        call_datagokr("https://example", {})
+    assert len(calls) == 1

@@ -43,8 +43,18 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
         official = OfficialPrice(manual_official_won, today.year, "사용자 입력")
     else:
         official = attempt("official", get_official_price, address, dong, ho)
-    kind = "apt" if building and building.is_apartment else "rh"
-    market = attempt("market", get_market_price, address, area_m2, building.approval_year if building else None, today, kind)
+    year = building.approval_year if building else None
+    market = None
+    if building is None:  # 건축물대장이 없거나 실패: 같은 지번에 아파트 거래가 쌓여 있으면 아파트로 본다
+        try:
+            market = get_market_price(address, area_m2, year, today, "apt")
+        except DataSourceError:
+            pass
+        if market and market.basis != "same_jibun":
+            market = None
+    if market is None:
+        kind = "apt" if building and building.is_apartment else "rh"
+        market = attempt("market", get_market_price, address, area_m2, year, today, kind)
     risk = assess_risk(deposit_won, senior_debt_won, official, market, building, market_failed="market" in errors,
                        building_failed="building" in errors, registry_flags=registry_flags)
     youth = attempt("youth", get_youth_policies, address.sigungu_cd, profile.age) or []
