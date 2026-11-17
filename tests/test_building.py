@@ -123,3 +123,13 @@ def test_building_request_asks_first_page_explicitly(monkeypatch):
     monkeypatch.setattr(datagokr.requests, "get", get)
     get_building(BONGCHEON)
     assert get.calls[0][1]["pageNo"] == 1 and get.calls[0][1]["numOfRows"] == 100
+
+
+def test_complex_skips_guardhouse_and_takes_largest_residential(monkeypatch):
+    body = load_fixture("bldg_title_bongcheon_1_70.json")
+    row = body["response"]["body"]["items"]["item"][0]
+    guard = {**row, "mainPurpsCdNm": "공동주택", "etcPurps": "경비실", "hhldCnt": "0"}
+    apt = {**row, "mainPurpsCdNm": "공동주택", "etcPurps": "아파트", "hhldCnt": "120"}
+    body["response"]["body"]["items"]["item"] = [guard, apt]
+    _serve(monkeypatch, json.dumps(body))
+    assert get_building(BONGCHEON).is_apartment

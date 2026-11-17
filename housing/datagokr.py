@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 
 import requests
 
+from housing import demo
 from housing.config import get_key
 from housing.errors import DataSourceError
 
@@ -28,8 +29,7 @@ def call_datagokr(url: str, params: dict) -> dict:
     """응답의 response.body를 돌려준다. 키 오류·결과코드 오류는 DataSourceError."""
     query = {"serviceKey": get_key("DATA_GO_KR_KEY"), "_type": "json", **params}
     try:
-        resp = requests.get(url, params=query, timeout=15)
-        resp.raise_for_status()
+        resp = demo.get(url, query, timeout=15)
     except requests.RequestException as e:  # 메시지에 serviceKey가 든 URL이 있으므로 그대로 쓰지 않는다
         status = getattr(e.response, "status_code", None)
         raise DataSourceError(f"공공데이터 호출 실패 ({f'HTTP {status}' if status else type(e).__name__})") from None

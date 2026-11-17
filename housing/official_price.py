@@ -6,6 +6,7 @@ from datetime import date
 import requests
 
 from housing.address import Address
+from housing import demo
 from housing.config import get_key
 from housing.errors import DataSourceError
 
@@ -39,8 +40,7 @@ def _rows(addr: Address, extra: dict) -> list[dict]:
     while True:  # 큰 아파트 단지는 한 해에만 수천 행이라 페이지를 넘긴다
         params = {"key": key, "pnu": addr.pnu, "format": "json", "numOfRows": 1000, "pageNo": page, "domain": domain, **extra}
         try:
-            resp = requests.get(VWORLD_URL, params=params, timeout=10)
-            resp.raise_for_status()
+            resp = demo.get(VWORLD_URL, params, timeout=10)
             data = resp.json()
         except (requests.RequestException, ValueError) as e:  # 메시지에 key가 든 URL이 있을 수 있다
             status = getattr(getattr(e, "response", None), "status_code", None)

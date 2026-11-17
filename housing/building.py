@@ -29,7 +29,8 @@ def get_building(addr: Address) -> BuildingInfo | None:
     rows = items_of(body)
     main = [r for r in rows if r.get("mainAtchGbCdNm") == "주건축물"] or rows
     # shortcut: 한 지번에 여러 동(아파트 단지·주상복합)이면 주택 동을 고른다. 내 호수가 어느 동인지는 보지 않는다
-    row = next((r for r in main if r.get("mainPurpsCdNm") in RESIDENTIAL), main[0] if main else None)
+    homes = [r for r in main if r.get("mainPurpsCdNm") in RESIDENTIAL]  # 단지엔 경비실·관리동도 공동주택으로 나온다
+    row = max(homes, key=lambda r: int(r.get("hhldCnt") or 0)) if homes else (main[0] if main else None)
     if row is None:
         return None
     apr = str(row.get("useAprDay") or "")

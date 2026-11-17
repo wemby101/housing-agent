@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import requests
 
+from housing import demo
 from housing.config import get_key
 from housing.errors import DataSourceError
 
@@ -51,8 +52,7 @@ def search_address(keyword: str, limit: int = 10) -> list[Address]:
         "resultType": "json",
     }
     try:
-        resp = requests.get(JUSO_URL, params=params, timeout=10)
-        resp.raise_for_status()
+        resp = demo.get(JUSO_URL, params, timeout=10)
         results = resp.json()["results"]
     except (requests.RequestException, ValueError, KeyError) as e:  # 메시지에 confmKey가 든 URL이 있을 수 있다
         raise DataSourceError(f"주소 검색 실패 ({type(e).__name__})") from None
