@@ -1,5 +1,7 @@
-requests
-python-dotenv
-streamlit
-pytest
-pypdf
+# 배포 때 새 버전이 깔려 화면이 깨지지 않도록 지금 테스트한 버전으로 고정 (올릴 때는 테스트 후 함께 바꾼다)
+requests==2.34.2
+python-dotenv==1.2.4
+streamlit==1.67.0
+altair==6.3.0
+pytest==9.2.0
+pypdf==7.1.0
