@@ -29,6 +29,8 @@ class Diagnosis:
     senior_debt_won: int | None = None
     registry_flags: tuple[str, ...] = ()
     policies_checked: bool = True  # 나이·소득을 몰라 지원 정책을 찾지 않았으면 False
+    dong: str = ""
+    ho: str = ""
 
 # 전월세 전환율 법정 상한 = 한국은행 기준금리 3.00%(2026-10-22 동결) + 2%p (주택임대차보호법 시행령 제9조)
 LEGAL_CONVERSION_PCT = 5.0
@@ -75,7 +77,7 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
     youth = (attempt("youth", get_youth_policies, address.sigungu_cd, profile.age) or []) if profile else []
     policies = match_policies(profile, load_policies(), address.sigungu_cd[:2]) if profile else []
     return Diagnosis(address, building, official, market, risk, policies, errors, youth, jeonse,
-                     deposit_won, monthly_rent_won, senior_debt_won, registry_flags, profile is not None)
+                     deposit_won, monthly_rent_won, senior_debt_won, registry_flags, profile is not None, dong, ho)
 
 
 def what_if(d: Diagnosis, deposit_won: int, monthly_rent_won: int) -> RiskReport:

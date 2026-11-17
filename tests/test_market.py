@@ -44,6 +44,7 @@ def test_falls_back_to_same_dong_with_area_and_year_window():
     ]
     e = estimate_market_price(trades, BONGCHEON, 40.0, 2003)
     assert e.basis == "same_dong" and e.comp_count == 3
+    assert sorted(c.jibun for c in e.comps) == ["5-1", "9", "9-2"]  # 화면에 근거로 보여 줄 거래
 
 
 def test_fewer_than_three_comps_returns_none():

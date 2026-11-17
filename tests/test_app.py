@@ -24,7 +24,7 @@ def calls(monkeypatch):
     def fake_diagnose(*args, **kwargs):
         seen.append((args, kwargs))
         return Diagnosis(BONGCHEON, None, None, None, RiskReport("h", [], None, None, None), [], {"market": "데이터를 가져오지 못했어요"},
-                         policies_checked=args[7] is not None)
+                         deposit_won=args[4], monthly_rent_won=args[5], policies_checked=args[7] is not None)
 
     monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
     monkeypatch.setattr(housing.pipeline, "diagnose", fake_diagnose)
@@ -386,3 +386,67 @@ def test_summary_without_market_or_my_info(calls):
     s = summary(at)
     assert s["시세 대비 보증금"] == "-" and s["받을 수 있는 지원"] == "내 정보 필요"
     assert not any('class="risk-bar"' in m.value for m in at.markdown)
+
+
+def code_blocks(at):
+    return [c.value for c in at.code]
+
+
+def test_contract_phrases_use_target_then_follow_slider(monkeypatch):
+    at = jeonse_result(monkeypatch)
+    terms, msg = code_blocks(at)[:2]
+    assert "1. 임대인은 잔금일 다음 날까지" in terms
+    assert "보증금을 1억 6,600만 원으로 낮추고 월세를 22.5만 원으로" in msg  # 슬라이더를 안 움직였으면 협상 목표로
+    next(s for s in at.slider if "보증금" in s.label).set_value(15000).run()
+    assert "보증금을 1억 5,000만 원으로 낮추고 월세를 29.2만 원으로" in code_blocks(at)[1]
+    assert not at.exception
+
+
+def test_ai_polish_shows_polished_message(monkeypatch):
+    from housing import agent
+    monkeypatch.setattr(agent, "available", lambda: True)
+    monkeypatch.setattr(agent, "polish", lambda text: "다듬은 메시지 " + text)
+    at = jeonse_result(monkeypatch)
+    next(b for b in at.button if "다듬기" in b.label).click().run()
+    assert code_blocks(at)[1].startswith("다듬은 메시지")
+
+
+def test_ai_polish_failure_keeps_original(monkeypatch):
+    from housing import agent
+
+    def fail(text):
+        raise agent.AgentError("AI가 숫자를 바꾸거나 빠뜨려서 원래 문장을 그대로 보여 드려요.")
+    monkeypatch.setattr(agent, "available", lambda: True)
+    monkeypatch.setattr(agent, "polish", fail)
+    at = jeonse_result(monkeypatch)
+    next(b for b in at.button if "다듬기" in b.label).click().run()
+    assert code_blocks(at)[1].startswith("안녕하세요") and any("숫자" in w.value for w in at.warning)
+
+
+def test_market_evidence_lists_comps(monkeypatch):
+    from housing.market import MarketEstimate, Trade
+    comps = (Trade(200_000_000, 40.0, 2003, "봉천동", "1-70", "202605"), Trade(240_000_000, 40.0, 2003, "봉천동", "1-70", "202609"),
+             Trade(220_000_000, 40.0, 2003, "봉천동", "1-70", "202601"))
+    full = Diagnosis(BONGCHEON, None, None, MarketEstimate(220_000_000, 3, "same_jibun", 24, comps=comps),
+                     RiskReport("h", [], 1.0, None, None), [], {}, deposit_won=220_000_000)
+    st.cache_data.clear()
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: full)
+    at = submit(deposit=22000)
+    ev = next(e for e in at.expander if "근거" in e.label)
+    assert "2억 2,000만 원" in ev.label and "3건" in ev.label
+    table = at.dataframe[0].value
+    assert list(table["계약"]) == ["2026.09", "2026.05", "2026.01"] and list(table["㎡당(만원)"]) == [600.0, 500.0, 550.0]
+
+
+def test_compare_collects_houses_across_diagnoses(calls):
+    at = submit(deposit=10000)
+    next(b for b in at.button if "비교 목록에 담기" in b.label).click().run()
+    assert any(b.label == "비교 목록에 담겼어요" and b.disabled for b in at.button)
+    at.number_input[DEPOSIT].set_value(15000)
+    at.button[0].click().run()
+    next(b for b in at.button if "비교 목록에 담기" in b.label).click().run()
+    table = next(m.value for m in at.markdown if "| **조건** |" in m.value)
+    assert "전세 1억 원" in table and "전세 1억 5,000만 원" in table
+    next(b for b in at.button if "비우기" in b.label).click().run()
+    assert not any("| **조건** |" in m.value for m in at.markdown)

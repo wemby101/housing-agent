@@ -40,6 +40,7 @@ class MarketEstimate:
     basis: str  # "same_jibun" | "same_dong"
     months: int
     kind: str = "rh"  # "rh" 연립다세대 | "apt" 아파트, 전세는 "rh_rent" | "apt_rent"
+    comps: tuple[Trade, ...] = ()  # 시세 계산에 쓴 거래 (화면에 근거로 보여 준다)
 
 
 def parse_trade(item: dict) -> Trade | None:
@@ -103,7 +104,8 @@ def _jibun_of(addr: Address) -> str:
 def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, build_year: int | None) -> MarketEstimate | None:
     def build(comps: list[Trade], basis: str) -> MarketEstimate:
         per_m2 = median(tr.price_won / tr.area_m2 for tr in comps)
-        return MarketEstimate(price_won=round(per_m2 * area_m2), comp_count=len(comps), basis=basis, months=MONTHS)
+        return MarketEstimate(price_won=round(per_m2 * area_m2), comp_count=len(comps), basis=basis, months=MONTHS,
+                              comps=tuple(comps))
 
     same_dong = [tr for tr in trades if tr.umd_name == addr.emd_name and tr.area_m2 > 0]
     same_jibun = [tr for tr in same_dong if tr.jibun == _jibun_of(addr)]

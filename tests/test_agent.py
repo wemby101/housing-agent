@@ -207,3 +207,22 @@ def test_available_with_only_groq_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY")
     monkeypatch.setenv("GROQ_API_KEY", "k")
     assert agent.available()
+
+
+def test_polish_keeps_numbers_and_sends_no_tools(monkeypatch):
+    sent = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        sent.append(json)
+        return chat_response({"role": "assistant", "content": "안녕하세요! 보증금을 1억 6,600만 원으로, 월세는 22.5만 원으로 부탁드려요."})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    out = agent.polish("보증금을 1억 6,600만 원으로 낮추고 월세를 22.5만 원으로 해 주세요.")
+    assert "1억 6,600만" in out and "tools" not in sent[0]
+
+
+def test_polish_rejects_changed_numbers(monkeypatch):
+    monkeypatch.setattr(agent.requests, "post", lambda *a, **k: chat_response(
+        {"role": "assistant", "content": "보증금을 1억 6,000만 원으로 해 주세요."}))
+    with pytest.raises(agent.AgentError, match="숫자"):
+        agent.polish("보증금을 1억 6,600만 원으로 낮춰 주세요.")

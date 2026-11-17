@@ -41,3 +41,8 @@ def test_report_lists_youth_policies():
     d = replace(diagnosis(), youth=[YouthPolicy("인품 <자립>주택", "인천광역시", "지원", "상시", "https://youth.incheon.go.kr/x")])
     html = build_report(d, [], set(), DISCLAIMER, date(2026, 11, 16))
     assert "이 지역의 다른 청년 주거 정책" in html and "인품 &lt;자립&gt;주택" in html and "https://youth.incheon.go.kr/x" in html
+
+
+def test_report_includes_special_terms():
+    html = build_report(diagnosis(), [], set(), DISCLAIMER, date(2026, 11, 16), ["임대인은 <말소>한다."])
+    assert "계약서 특약" in html and "임대인은 &lt;말소&gt;한다." in html

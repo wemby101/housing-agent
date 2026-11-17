@@ -3,6 +3,7 @@
 AI 제공사는 OpenAI 호환 채팅 API를 쓴다. 키가 있는 제공사를 Gemini → Groq 순서로 쓰고, 한도가 차면 다음으로 넘어간다."""
 import json
 import os
+import re
 from datetime import date
 
 import requests
@@ -155,12 +156,13 @@ def run_tool(name: str, arguments: str) -> dict:
         return {"error": f"공공데이터 조회 중 문제가 생겼어요 ({type(e).__name__}). 잠시 뒤 다시 시도하거나 폼으로 진단해 달라고 안내하세요."}
 
 
-def _chat(messages: list[dict]) -> dict:
+def _chat(messages: list[dict], tools: list | None = TOOLS) -> dict:
     for url, key, model in _models():
         gemini = "googleapis" in url
         try:
             resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=90, json={
-                "model": model, "messages": [_plain(m, gemini) for m in messages], "tools": TOOLS, "reasoning_effort": "low"})
+                "model": model, "messages": [_plain(m, gemini) for m in messages], **({"tools": tools} if tools else {}),
+                "reasoning_effort": "low"})
         except requests.RequestException as e:  # 메시지에 키가 든 헤더가 섞일 수 있어 그대로 쓰지 않는다
             raise AgentError(f"AI 연결 실패 ({type(e).__name__})") from None
         if resp.status_code not in (429, 503):
@@ -190,3 +192,15 @@ def reply(history: list[dict]) -> tuple[str, list[dict]]:
             result = run_tool(c["function"]["name"], c["function"].get("arguments", "{}"))
             messages.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": json.dumps(result, ensure_ascii=False)})
     return "질문을 처리하는 단계가 너무 길어졌어요. 주소·호수·보증금을 한 번에 적어 다시 물어봐 주세요.", messages[1:]
+
+
+POLISH = ("세입자가 집주인이나 공인중개사에게 보낼 메시지야. 정중하고 자연스러운 한국어 문자 메시지로 다듬어 줘. "
+          "숫자·금액·비율과 번호 붙은 특약 문장은 한 글자도 바꾸거나 빼지 마. 새 내용이나 숫자를 더하지 마. 다듬은 메시지만 답해.")
+
+
+def polish(text: str) -> str:
+    """AI는 말투만 다듬는다. 원문의 숫자가 하나라도 사라지면 쓰지 않는다."""
+    out = (_chat([{"role": "system", "content": POLISH}, {"role": "user", "content": text}], tools=None).get("content") or "").strip()
+    if not out or any(n not in out for n in re.findall(r"\d[\d,]*(?:\.\d+)?", text)):
+        raise AgentError("AI가 숫자를 바꾸거나 빠뜨려서 원래 문장을 그대로 보여 드려요.")
+    return out

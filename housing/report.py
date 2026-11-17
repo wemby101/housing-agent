@@ -20,7 +20,8 @@ small{color:#8f8f8f}a{color:#0070f3}ul{padding-left:1.2rem}
 """
 
 
-def build_report(d: Diagnosis, checklist: list[str], done: set[int], disclaimer: str, today: date) -> str:
+def build_report(d: Diagnosis, checklist: list[str], done: set[int], disclaimer: str, today: date,
+                 terms: list[str] = ()) -> str:
     e = escape
     parts = [
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'>",
@@ -51,6 +52,8 @@ def build_report(d: Diagnosis, checklist: list[str], done: set[int], disclaimer:
         parts.append("<h2>이 지역의 다른 청년 주거 정책</h2><small>출처: 온통청년. 자격은 자동으로 따지지 않았어요.</small><ul>")
         parts += [f"<li><a href='{e(y.url)}'>{e(y.name)}</a> · {e(y.org)} · 신청 {e(y.period)}</li>" for y in d.youth]
         parts.append("</ul>")
+    if terms:
+        parts.append("<h2>계약서 특약</h2><ol>" + "".join(f"<li>{e(t)}</li>" for t in terms) + "</ol>")
     if checklist:
         parts.append("<h2>해야 할 일</h2><ul style='list-style:none;padding:0'>")
         parts += [f"<li>{'☑' if i in done else '☐'} {e(it.replace('**', ''))}</li>" for i, it in enumerate(checklist)]

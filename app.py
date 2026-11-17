@@ -1,13 +1,15 @@
 """청년 집 구하기 진단 — 폼 모드 (Streamlit)."""
 from datetime import date
-from urllib.parse import urlencode
 from pathlib import Path
+from statistics import median
+from urllib.parse import urlencode
 
 import streamlit as st
 import streamlit.components.v1 as components
 
 from housing import agent
 from housing.address import search_address
+from housing.contract import negotiation_message, special_terms, won
 from housing.errors import DataSourceError
 from housing.official_price import list_units
 from housing.pipeline import LEGAL_CONVERSION_PCT, diagnose, rent_for_cut, what_if
@@ -19,6 +21,8 @@ from housing.risk import man
 DISCLAIMER = "참고용 진단입니다. 계약 전 공인중개사·HUG(1566-9009) 상담으로 확인하세요."
 MAN = 10_000
 SEARCH_LIMIT = 20
+ICONS = {"danger": "🔴", "caution": "🟠", "info": "⚪"}
+MAX_COMPARE = 4
 ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "market": "실거래가 시세", "jeonse": "주변 전세 시세", "youth": "온통청년 정책"}
 
 st.set_page_config(page_title="청년 집 구하기 진단", page_icon="🏠")
@@ -63,6 +67,11 @@ def cached_units(addr):
 @st.cache_data(ttl=3600, show_spinner="공공데이터를 조회하고 있어요…")
 def cached_diagnose(*args, **kwargs):
     return diagnose(*args, **kwargs)
+
+
+def same_house(a, b):  # 같은 집·같은 조건이면 비교 목록에 두 번 담지 않는다
+    return (a.address.pnu, a.dong, a.ho, a.deposit_won, a.monthly_rent_won) == \
+        (b.address.pnu, b.dong, b.ho, b.deposit_won, b.monthly_rent_won)
 
 
 # 링크(주소창)에 담긴 집·계약 정보. 나이·소득 같은 내 정보는 담지 않는다.
@@ -241,10 +250,9 @@ if d is not None:
 
     # 2) 신호 카드
     st.markdown("#### 위험 신호")
-    icons = {"danger": "🔴", "caution": "🟠", "info": "⚪"}
     for i, s in enumerate(r.signals):
         with st.container(border=True, key=f"signal-{i}"):
-            st.markdown(f"{icons[s.level]} **{s.title}**")
+            st.markdown(f"{ICONS[s.level]} **{s.title}**")
             st.write(s.detail)
             st.caption(f"출처: {s.source}")
     for key, msg in d.errors.items():
@@ -253,7 +261,25 @@ if d is not None:
         st.caption(f"건축물대장: {d.building.main_purpose} · {d.building.etc_purpose} · {d.building.households}세대 · "
                    f"{d.building.approval_year or '?'}년 사용승인")
 
+    # 2-0) 시세 근거: 추정에 쓴 실거래를 그대로 보여 준다
+    for est, what in ((d.market, "추정 매매 시세"), (d.jeonse, "주변 전세 시세")):
+        if est is None or not est.comps:
+            continue
+        per = median(t.price_won / t.area_m2 for t in est.comps)
+        with st.expander(f"📊 {what} {won(est.price_won)}의 근거 · 실거래 {est.comp_count}건"):
+            st.caption(f"최근 {est.months}개월 " + ("같은 건물의 거래" if est.basis == "same_jibun" else
+                       "같은 동의 비슷한 집(전용면적 ±20%, 건축년도 ±5년) 거래") +
+                       f"예요. ㎡당 가격의 중간값 {won(round(per))} × 전용 {est.price_won / per:.2f}㎡ = {won(est.price_won)}. "
+                       "출처: 국토교통부 실거래가 공개시스템")
+            st.dataframe([{"계약": f"{t.ym[:4]}.{t.ym[4:]}", "지번": t.jibun, "전용(㎡)": t.area_m2,
+                           "금액(만원)": t.price_won // MAN, "㎡당(만원)": round(t.price_won / t.area_m2 / MAN, 1),
+                           "건축년도": t.build_year}
+                          for t in sorted(est.comps, key=lambda t: t.ym, reverse=True)],
+                         hide_index=True, use_container_width=True,
+                         column_config={"금액(만원)": st.column_config.NumberColumn(format="localized")})
+
     # 2-1) 보증금을 바꿔 보면: 같은 집 데이터로 위험만 다시 계산한다 (공공데이터는 다시 부르지 않음)
+    proposal, proposal_note = None, ""  # 협상 메시지에 넣을 (보증금, 월세)와 그 출처
     if d.deposit_won >= 100 * MAN and d.monthly_rent_won == 0 and d.market is not None:  # 전세 계약만
         st.markdown("#### 보증금을 낮추고 월세로 바꾸면")
         top_man = d.deposit_won // MAN
@@ -269,15 +295,15 @@ if d is not None:
         cut = d.deposit_won - new_man * MAN
         new_rent = d.monthly_rent_won + rent_for_cut(cut, rate)
         alt = what_if(d, new_man * MAN, new_rent)
-
-        def won(x):  # 29.2만 원처럼 월세는 소수 한 자리까지
-            return f"{x / MAN:,.1f}만 원".replace(".0만", "만")
+        if cut > 0:
+            proposal = (new_man * MAN, new_rent)
+            proposal_note = "제안 조건은 위 '보증금을 낮추고 월세로 바꾸면'에서 고른 값이에요."
 
         def terms(col, title, dep, rent, rep):
             lvl = rep.signals[0].level if rep.signals else "info"
             ratio = "-" if rep.deposit_ratio is None else f"{int(rep.deposit_ratio * 100)}%"  # 보증금 0원·시세 의심이면 비율 없음
             col.markdown(f"**{title}**  \n보증금 {won(dep)} · 월세 {won(rent)}  \n"
-                         f"시세 대비 **{ratio}**  \n{icons[lvl]} {rep.headline}")
+                         f"시세 대비 **{ratio}**  \n{ICONS[lvl]} {rep.headline}")
 
         c1, c2 = st.columns(2)
         terms(c1, "지금 조건", d.deposit_won, d.monthly_rent_won, r)
@@ -285,6 +311,34 @@ if d is not None:
         if cut > 0:
             st.caption(f"보증금을 {won(cut)} 낮추면 월세가 {won(new_rent - d.monthly_rent_won)} 늘어요 (전환율 {rate:g}%). "
                        f"1년에 {won((new_rent - d.monthly_rent_won) * 12)}을 더 내는 대신, 돌려받지 못할 수 있는 돈이 {won(cut)} 줄어요.")
+
+    # 2-2) 계약할 때 쓸 문구: 특약과 협상 메시지 (숫자는 진단 결과에서, AI는 말투만)
+    if proposal is None and r.target_deposit_won is not None and d.deposit_won > r.target_deposit_won:
+        safe = r.target_deposit_won // (100 * MAN) * 100 * MAN  # 목표를 넘지 않게 100만 원 단위로 내림
+        if safe > 0:
+            proposal = (safe, d.monthly_rent_won + rent_for_cut(d.deposit_won - safe, LEGAL_CONVERSION_PCT))
+            proposal_note = (f"제안 보증금은 협상 목표({man(r.target_deposit_won)} 원) 이하로 맞추고, 낮춘 만큼 월세는 "
+                             f"법정 상한 전환율 {LEGAL_CONVERSION_PCT:g}%로 계산했어요."
+                             + (" 위 슬라이더로 바꿀 수 있어요." if d.monthly_rent_won == 0 and d.market is not None else ""))
+    terms_list = special_terms(d)
+    with st.container(key="phrases"):
+        st.markdown("#### 계약할 때 쓸 문구")
+        st.caption("진단 결과로 만든 문구예요. 오른쪽 위 복사 단추로 복사해 쓰세요. 법률 자문이 아니니 공인중개사와 함께 확인하세요.")
+        tab1, tab2 = st.tabs(["계약서 특약", "집주인·중개사에게 보낼 메시지"])
+        tab1.code("\n".join(f"{i}. {t}" for i, t in enumerate(terms_list, 1)), language=None, wrap_lines=True)
+        with tab2:
+            msg = negotiation_message(d, *proposal) if proposal else negotiation_message(d)
+            if proposal_note:
+                st.caption(proposal_note)
+            polished = st.session_state.setdefault("polished", {}).get(msg)
+            if agent.available() and polished is None and st.button(
+                    "✨ AI로 말투 다듬기", help="숫자와 특약 문장은 그대로 두고 말투만 다듬어요. 숫자가 바뀌면 원래 문장을 보여 드려요."):
+                with st.spinner("AI가 문장을 다듬고 있어요…"):
+                    try:
+                        polished = st.session_state["polished"][msg] = agent.polish(msg)
+                    except agent.AgentError as e:
+                        st.warning(str(e))
+            st.code(polished or msg, language=None, wrap_lines=True)
 
     # 3) 지원
     st.markdown("#### 받을 수 있는 지원")
@@ -327,8 +381,7 @@ if d is not None:
     items += [
         "등기부등본(을구)에서 근저당·선순위 채권 확인",
         "건축물대장에서 위반건축물 여부 확인 (자동 조회 항목에 없어 직접 확인이 필요해요)",
-        "특약 넣기: \"잔금일 다음 날까지 근저당 등 권리 변동을 하지 않는다\"",
-        "특약 넣기: \"전세보증보험 가입이 거절되면 계약을 해제하고 계약금을 돌려준다\"",
+        "계약서에 위 '계약서 특약' 문구 넣기",
     ]
     done = set(link.get("done", "").split(",")) - {""}
     checked = [str(i) for i, it in enumerate(items) if st.checkbox(it, value=str(i) in done)]
@@ -341,12 +394,56 @@ if d is not None:
     # 5) 저장·공유
     st.markdown("#### 저장·공유")
     st.download_button(
-        "결과 파일로 저장 (.html)", build_report(d, items, {int(i) for i in checked}, DISCLAIMER, date.today()),
+        "결과 파일로 저장 (.html)", build_report(d, items, {int(i) for i in checked}, DISCLAIMER, date.today(), terms_list),
         file_name=f"집진단_{date.today():%Y%m%d}.html", mime="text/html",
         help="폰·PC 어디서나 열려요. 파일을 열고 인쇄하면 PDF로도 저장할 수 있어요.")
     if st.context.url:
         st.code(f"{st.context.url}?{urlencode(st.query_params.to_dict())}", language=None)
         st.caption("이 링크를 복사해 보내면 같은 집·계약 조건으로 열려요. 나이·소득 같은 내 정보는 링크에 들어가지 않아요.")
+    saved = st.session_state.setdefault("compare", [])
+    if any(same_house(x, d) for x in saved):
+        st.button("비교 목록에 담겼어요", disabled=True)
+    else:
+        st.button("후보 집 비교 목록에 담기", help=f"다른 집도 진단해 담으면 아래에서 나란히 비교할 수 있어요 (최대 {MAX_COMPARE}곳).",
+                  on_click=lambda: st.session_state.update(compare=[*saved, d][-MAX_COMPARE:]))
+
+# 6) 후보 집 비교: 이번 접속에서 담은 집들 (새 진단을 해도 남는다)
+if saved := st.session_state.get("compare"):
+    st.markdown("#### 후보 집 비교")
+    ratios = [x.risk.deposit_ratio for x in saved]
+    best = min((v for v in ratios if v is not None), default=None)
+
+    def cell_ratio(v):
+        return "-" if v is None else f"**{int(v * 100)}%** (가장 낮음)" if v == best and len(saved) > 1 else f"{int(v * 100)}%"
+
+    def cell_guarantee(x):
+        lim = x.risk.guarantee_limit_won
+        return "-" if lim is None else "한도 안" if x.deposit_won <= lim else f"{won(x.deposit_won - max(lim, 0))} 초과"
+
+    def cell_target(x):
+        t = x.risk.target_deposit_won
+        return "-" if t is None else "지금도 목표 이하" if x.deposit_won <= t else f"{won(t)} 이하"
+
+    def cell_terms(x):
+        return (f"전세 {won(x.deposit_won)}" if x.monthly_rent_won == 0
+                else f"보증금 {won(x.deposit_won)} / 월세 {won(x.monthly_rent_won)}")
+
+    def cell_verdict(x):
+        lvl = x.risk.signals[0].level if x.risk.signals else "info"
+        return f"{ICONS[lvl]} {x.risk.headline}"
+
+    names = [" ".join(filter(None, [x.address.building_name or x.address.road_addr or x.address.jibun_addr, x.dong,
+                                    f"{x.ho}호" if x.ho else ""])) for x in saved]
+    rows = [("조건", [cell_terms(x) for x in saved]), ("시세 대비", [cell_ratio(v) for v in ratios]),
+            ("보증보험", [cell_guarantee(x) for x in saved]), ("협상 목표", [cell_target(x) for x in saved]),
+            ("판정", [cell_verdict(x) for x in saved])]
+    with st.container(key="compare-table"):
+        st.markdown("\n".join([f"| | {' | '.join(names)} |", "|---" * (len(saved) + 1) + "|",
+                               *[f"| **{label}** | {' | '.join(cells)} |" for label, cells in rows]]))
+    st.caption("시세 대비가 낮고 보증보험 한도 안인 집일수록 보증금을 돌려받기 쉬워요.")
+    if st.button("비교 목록 비우기"):
+        st.session_state["compare"] = []
+        st.rerun()
 
 st.divider()
 st.caption(DISCLAIMER)
