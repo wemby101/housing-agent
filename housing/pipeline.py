@@ -28,13 +28,14 @@ class Diagnosis:
     monthly_rent_won: int = 0
     senior_debt_won: int | None = None
     registry_flags: tuple[str, ...] = ()
+    policies_checked: bool = True  # 나이·소득을 몰라 지원 정책을 찾지 않았으면 False
 
 # 전월세 전환율 법정 상한 = 한국은행 기준금리 3.00%(2026-10-22 동결) + 2%p (주택임대차보호법 시행령 제9조)
 LEGAL_CONVERSION_PCT = 5.0
 
 
 def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: int,
-             monthly_rent_won: int, senior_debt_won: int | None, profile: Profile,
+             monthly_rent_won: int, senior_debt_won: int | None, profile: Profile | None,
              manual_official_won: int | None = None, today: date | None = None,
              registry_flags: tuple[str, ...] = ()) -> Diagnosis:
     today = today or date.today()
@@ -70,9 +71,11 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
         jeonse = attempt("jeonse", get_market_price, address, area_m2, year, today, f"{kind}_rent", 12)  # 전세는 최근 1년이 시세
     risk = assess_risk(deposit_won, senior_debt_won, official, market, building, market_failed="market" in errors,
                        building_failed="building" in errors, registry_flags=registry_flags, jeonse=jeonse)
-    youth = attempt("youth", get_youth_policies, address.sigungu_cd, profile.age) or []
-    return Diagnosis(address, building, official, market, risk, match_policies(profile, load_policies(), address.sigungu_cd[:2]),
-                     errors, youth, jeonse, deposit_won, monthly_rent_won, senior_debt_won, registry_flags)
+    # 나이·소득을 모르면(profile=None) 임시 값으로 고르지 않고 정책 찾기를 건너뛴다
+    youth = (attempt("youth", get_youth_policies, address.sigungu_cd, profile.age) or []) if profile else []
+    policies = match_policies(profile, load_policies(), address.sigungu_cd[:2]) if profile else []
+    return Diagnosis(address, building, official, market, risk, policies, errors, youth, jeonse,
+                     deposit_won, monthly_rent_won, senior_debt_won, registry_flags, profile is not None)
 
 
 def what_if(d: Diagnosis, deposit_won: int, monthly_rent_won: int) -> RiskReport:

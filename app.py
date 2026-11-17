@@ -157,21 +157,20 @@ with st.form("diagnose"):
 
     st.markdown("**내 정보**")
     c1, c2 = st.columns(2)
-    age = c1.number_input("만 나이", min_value=15, max_value=100, value=26)
-    income = c2.number_input("세전 연소득 (만원, 기혼이면 부부 합산)", min_value=0, value=3000, step=100)
-    c1, c2 = st.columns(2)
+    age = c1.number_input("만 나이", min_value=15, max_value=100, value=None, placeholder="예: 26")
+    income = c2.number_input("세전 연소득 (만원, 기혼이면 부부 합산)", min_value=0, value=None, step=100, placeholder="예: 3000")
+    c1, c2, c3 = st.columns(3)
     married = c1.checkbox("기혼")
     homeless = c2.checkbox("무주택", value=True)
+    no_income = c3.checkbox("소득 없음 (학생 등)")  # 체크하면 소득칸과 상관없이 0원
     submitted = st.form_submit_button("진단하기", type="primary", use_container_width=True)
 
-# 링크로 열면 한 번 자동으로 진단한다 (내 정보는 기본값)
+# 링크로 열면 한 번 자동으로 진단한다 (내 정보는 링크에 없어 지원 정책은 빼고)
 from_link = (not st.session_state.get("link_opened") and "diagnosis" not in st.session_state
              and address is not None and address.pnu == link.get("pnu"))
 st.session_state["link_opened"] = True
-if submitted:
-    st.session_state["profile_from_link"] = False
-elif from_link:
-    submitted = st.session_state["profile_from_link"] = True
+if from_link:
+    submitted = True
 
 if submitted and address is None:
     st.warning("먼저 위에서 주소를 검색하고 골라 주세요.")
@@ -179,8 +178,10 @@ if submitted and address is None:
 if submitted and address is not None and deposit == 0 and rent == 0:
     st.warning("보증금이나 월세를 입력해 주세요. 둘 다 0이면 진단할 수 없어요.")
 elif submitted and address is not None:
-    profile = Profile(age=int(age), income_won=int(income) * MAN, married=married, homeless=homeless,
-                      deposit_won=int(deposit) * MAN, monthly_rent_won=int(rent) * MAN, area_m2=float(area) or None)
+    income = 0 if no_income else income
+    profile = None if age is None or income is None else Profile(  # 나이·소득을 모르면 정책은 찾지 않는다
+        age=int(age), income_won=int(income) * MAN, married=married, homeless=homeless,
+        deposit_won=int(deposit) * MAN, monthly_rent_won=int(rent) * MAN, area_m2=float(area) or None)
     senior = None if debt_unknown and debt == 0 else int(debt) * MAN  # 입력한 채권은 '모름'보다 우선
     st.session_state["senior_debt"] = senior or 0
     d = cached_diagnose(address, dong.strip(), ho.strip(), float(area), int(deposit) * MAN, int(rent) * MAN,
@@ -206,9 +207,6 @@ if d is not None:
     st.divider()
     with st.container(key="addr-plate"):
         st.subheader(d.address.road_addr)
-    if st.session_state.get("profile_from_link"):
-        st.info("링크로 연 결과예요. 내 정보(나이·소득 등)는 링크에 저장되지 않아 기본값으로 계산했어요. "
-                "지원 정책을 정확히 보려면 위에 내 정보를 넣고 다시 진단하세요.")
     top = r.signals[0].level if r.signals else "info"
     {"danger": st.error, "caution": st.warning}.get(top, st.info)(
         ("⚠️ " if top in ("danger", "caution") else "") + r.headline)
@@ -263,7 +261,10 @@ if d is not None:
     # 3) 지원
     st.markdown("#### 받을 수 있는 지원")
     eligible_total = sum(m.policy["benefit_max_won"] or 0 for m in d.policies if m.status == "eligible")
-    if not d.policies:
+    if not d.policies_checked:
+        st.info("위 '내 정보'에 만 나이와 세전 연소득(소득이 없으면 '소득 없음' 체크)을 넣고 다시 진단하면 "
+                "받을 수 있는 지원을 찾아 드려요.")
+    elif not d.policies:
         st.write("입력한 조건으로 맞는 지원을 찾지 못했어요.")
     elif eligible_total == 0:
         st.info("조건 충족이 확정된 현금 지원은 아직 없어요. 아래 '추가 확인 필요' 항목의 조건을 확인해 보세요.")

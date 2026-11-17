@@ -23,7 +23,8 @@ def calls(monkeypatch):
 
     def fake_diagnose(*args, **kwargs):
         seen.append((args, kwargs))
-        return Diagnosis(BONGCHEON, None, None, None, RiskReport("h", [], None, None, None), [], {"market": "데이터를 가져오지 못했어요"})
+        return Diagnosis(BONGCHEON, None, None, None, RiskReport("h", [], None, None, None), [], {"market": "데이터를 가져오지 못했어요"},
+                         policies_checked=args[7] is not None)
 
     monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
     monkeypatch.setattr(housing.pipeline, "diagnose", fake_diagnose)
@@ -146,7 +147,7 @@ def test_link_restores_diagnosis_on_open(calls):
     args, _ = calls[-1]
     assert (args[0], args[2], args[4], args[6]) == (BONGCHEON, "201", 200_000_000, 50_000_000)
     assert any(h.value == BONGCHEON.road_addr for h in at.subheader)
-    assert any("내 정보" in i.value for i in at.info)  # 나이·소득은 링크에 없어 기본값이라는 안내
+    assert args[7] is None and any("내 정보" in i.value for i in at.info)  # 나이·소득은 링크에 없어 정책은 빼고 안내
 
 
 def test_checklist_progress_is_kept_in_link(calls):
@@ -304,3 +305,28 @@ def test_zero_deposit_in_slider_does_not_crash(monkeypatch):
     at = jeonse_result(monkeypatch)
     next(s for s in at.slider if "보증금" in s.label).set_value(0).run()
     assert not at.exception
+
+
+AGE, INCOME = 5, 6
+
+
+def test_my_info_starts_empty_and_skips_policies(calls):
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    assert at.number_input[AGE].value is None and at.number_input[INCOME].value is None
+    at = submit()
+    assert calls[-1][0][7] is None  # 나이·소득이 없으면 프로필 없이 진단
+    assert any("나이" in i.value and "소득" in i.value for i in at.info)
+
+
+def test_no_income_checkbox_counts_as_zero_income(calls):
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.text_input[0].input("봉천동 1-70").run()
+    at.selectbox[0].select(BONGCHEON).run()
+    at.number_input[DEPOSIT].set_value(10000)
+    at.number_input[AGE].set_value(21)
+    next(c for c in at.checkbox if "소득 없음" in c.label).check()
+    at.button[0].click().run()
+    profile = calls[-1][0][7]
+    assert profile.age == 21 and profile.income_won == 0

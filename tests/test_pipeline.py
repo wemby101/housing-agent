@@ -171,3 +171,12 @@ def test_rent_for_lowered_deposit_uses_conversion_rate():
     # 5,000만 원을 연 5%로 바꾸면 월 208,333원 → 천 원 단위
     assert pipeline.rent_for_cut(50_000_000, 5.0) == 208_000
     assert pipeline.rent_for_cut(0, 5.0) == 0
+
+
+def test_without_my_info_policies_are_skipped_not_guessed(sources, monkeypatch):
+    """나이·소득을 안 넣으면 임시 값으로 정책을 고르지 않는다. 위험 진단은 그대로 한다."""
+    monkeypatch.setattr(pipeline, "get_youth_policies", boom)  # 부르면 안 된다
+    d = run(profile=None)
+    assert d.policies == [] and d.youth == [] and not d.policies_checked
+    assert "youth" not in d.errors and d.risk.deposit_ratio is not None
+    assert run().policies_checked

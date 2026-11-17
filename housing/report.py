@@ -43,7 +43,9 @@ def build_report(d: Diagnosis, checklist: list[str], done: set[int], disclaimer:
         reasons = "".join(f"<li>{e(r)}</li>" for r in m.reasons)
         parts.append(f"<div class='card'><b>[{badge}] {e(p['name'])}</b><p>{e(p['benefit_text'])}</p>"
                      f"<ul>{reasons}</ul><a href='{e(p['apply_url'])}'>신청하기</a></div>")
-    if not d.policies:
+    if not d.policies_checked:
+        parts.append("<p>나이·소득을 넣지 않아 지원 정책은 찾지 않았어요.</p>")
+    elif not d.policies:
         parts.append("<p>입력한 조건으로 맞는 지원을 찾지 못했어요.</p>")
     if d.youth:
         parts.append("<h2>이 지역의 다른 청년 주거 정책</h2><small>출처: 온통청년. 자격은 자동으로 따지지 않았어요.</small><ul>")
