@@ -258,3 +258,49 @@ def test_chat_hidden_without_key(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=10)
     at.run()
     assert len(at.chat_input) == 0
+
+
+def jeonse_result(monkeypatch):
+    from dataclasses import replace
+    from housing.building import BuildingInfo
+    from housing.market import MarketEstimate
+    from housing.official_price import OfficialPrice
+    from housing.risk import assess_risk
+
+    st.cache_data.clear()
+    official, mkt = OfficialPrice(281_000_000, 2026, "브이월드"), MarketEstimate(238_450_000, 51, "same_dong", 24)
+    bld = BuildingInfo("공동주택", "다세대주택", 9, 2003, True)
+    full = Diagnosis(BONGCHEON, bld, official, mkt, assess_risk(220_000_000, None, official, mkt, bld), [], {},
+                     deposit_won=220_000_000, monthly_rent_won=0, senior_debt_won=None)
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: full)
+    return submit(deposit=22000)
+
+
+def whatif_text(at):
+    return " ".join(m.value for m in at.markdown)
+
+
+def test_lowering_deposit_shows_new_ratio_and_monthly_rent(monkeypatch):
+    at = jeonse_result(monkeypatch)
+    slider = next(s for s in at.slider if "보증금" in s.label)
+    assert slider.value == 22000 and slider.max == 22000
+    assert "92%" in whatif_text(at)
+    slider.set_value(15000).run()  # 7,000만 원을 낮추면 연 5%로 월 291,667원 → 29.2만 원
+    text = whatif_text(at)
+    assert "62%" in text and "29.2만 원" in text  # 15,000 ÷ 23,845 = 62.9% → 다음 구간으로 올려 쓰지 않는다
+    assert not at.exception
+
+
+def test_target_button_moves_slider_to_safe_deposit(monkeypatch):
+    at = jeonse_result(monkeypatch)
+    next(b for b in at.button if "목표" in b.label).click().run()
+    slider = next(s for s in at.slider if "보증금" in s.label)
+    assert slider.value == 16600  # 목표 16,691만 원을 100만 원 단위로 내림 (넘지 않게)
+    assert "70%" in whatif_text(at) or "69%" in whatif_text(at)
+
+
+def test_zero_deposit_in_slider_does_not_crash(monkeypatch):
+    at = jeonse_result(monkeypatch)
+    next(s for s in at.slider if "보증금" in s.label).set_value(0).run()
+    assert not at.exception

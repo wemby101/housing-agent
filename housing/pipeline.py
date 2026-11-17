@@ -23,6 +23,14 @@ class Diagnosis:
     errors: dict[str, str]
     youth: list[YouthPolicy] = field(default_factory=list)  # 온통청년: 이 지역의 다른 청년 주거 정책
     jeonse: MarketEstimate | None = None  # 주변 전세 시세 (전세 계약일 때만)
+    # 조건을 바꿔 다시 계산할 때(what_if) 쓰는 입력값
+    deposit_won: int = 0
+    monthly_rent_won: int = 0
+    senior_debt_won: int | None = None
+    registry_flags: tuple[str, ...] = ()
+
+# 전월세 전환율 법정 상한 = 한국은행 기준금리 3.00%(2026-10-22 동결) + 2%p (주택임대차보호법 시행령 제9조)
+LEGAL_CONVERSION_PCT = 5.0
 
 
 def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: int,
@@ -64,4 +72,16 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
                        building_failed="building" in errors, registry_flags=registry_flags, jeonse=jeonse)
     youth = attempt("youth", get_youth_policies, address.sigungu_cd, profile.age) or []
     return Diagnosis(address, building, official, market, risk, match_policies(profile, load_policies(), address.sigungu_cd[:2]),
-                     errors, youth, jeonse)
+                     errors, youth, jeonse, deposit_won, monthly_rent_won, senior_debt_won, registry_flags)
+
+
+def what_if(d: Diagnosis, deposit_won: int, monthly_rent_won: int) -> RiskReport:
+    """같은 집에서 계약 조건만 바꿔 위험을 다시 계산한다. 공공데이터는 다시 부르지 않는다."""
+    return assess_risk(deposit_won, d.senior_debt_won, d.official, d.market, d.building,
+                       market_failed="market" in d.errors, building_failed="building" in d.errors,
+                       registry_flags=d.registry_flags, jeonse=d.jeonse if monthly_rent_won == 0 else None)
+
+
+def rent_for_cut(cut_won: int, rate_pct: float) -> int:
+    """보증금을 cut_won만큼 낮출 때 같은 값이 되는 월세 (전환율 = 1년 월세 합 ÷ 낮춘 보증금), 천 원 단위."""
+    return int(round(cut_won * rate_pct / 100 / 12, -3))

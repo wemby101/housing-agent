@@ -9,7 +9,7 @@ from housing import agent
 from housing.address import search_address
 from housing.errors import DataSourceError
 from housing.official_price import list_units
-from housing.pipeline import diagnose
+from housing.pipeline import LEGAL_CONVERSION_PCT, diagnose, rent_for_cut, what_if
 from housing.policies import Profile
 from housing.registry import read_registry_pdf
 from housing.report import build_report
@@ -224,6 +224,39 @@ if d is not None:
     if d.building:
         st.caption(f"건축물대장: {d.building.main_purpose} · {d.building.etc_purpose} · {d.building.households}세대 · "
                    f"{d.building.approval_year or '?'}년 사용승인")
+
+    # 2-1) 보증금을 바꿔 보면: 같은 집 데이터로 위험만 다시 계산한다 (공공데이터는 다시 부르지 않음)
+    if d.deposit_won >= 100 * MAN and d.market is not None:
+        st.markdown("#### 보증금을 낮추고 월세로 바꾸면")
+        top_man = d.deposit_won // MAN
+        key = f"whatif-{d.address.pnu}-{d.deposit_won}"  # 새로 진단하면 슬라이더도 처음부터
+        target_man = r.target_deposit_won // MAN // 100 * 100 if r.target_deposit_won is not None else None  # 넘지 않게 내림
+        new_man = st.slider("보증금 (만원)", min_value=0, max_value=top_man, value=top_man, step=100, key=key)
+        if target_man is not None and target_man < top_man:
+            st.button(f"협상 목표({man(r.target_deposit_won)} 원 이하)로 맞추기",
+                      on_click=lambda: st.session_state.update({key: target_man}))
+        rate = st.number_input("전월세 전환율 (%)", min_value=0.0, max_value=20.0, value=LEGAL_CONVERSION_PCT, step=0.5,
+                               help="낮춘 보증금을 월세로 바꿀 때 쓰는 연 이율. 기본값은 법이 정한 상한 "
+                                    "(한국은행 기준금리 3.00% + 2%p). 실제 월세는 집주인과 협상해 정해요.")
+        cut = d.deposit_won - new_man * MAN
+        new_rent = d.monthly_rent_won + rent_for_cut(cut, rate)
+        alt = what_if(d, new_man * MAN, new_rent)
+
+        def won(x):  # 29.2만 원처럼 월세는 소수 한 자리까지
+            return f"{x / MAN:,.1f}만 원".replace(".0만", "만")
+
+        def terms(col, title, dep, rent, rep):
+            lvl = rep.signals[0].level if rep.signals else "info"
+            ratio = "-" if rep.deposit_ratio is None else f"{int(rep.deposit_ratio * 100)}%"  # 보증금 0원·시세 의심이면 비율 없음
+            col.markdown(f"**{title}**  \n보증금 {won(dep)} · 월세 {won(rent)}  \n"
+                         f"시세 대비 **{ratio}**  \n{icons[lvl]} {rep.headline}")
+
+        c1, c2 = st.columns(2)
+        terms(c1, "지금 조건", d.deposit_won, d.monthly_rent_won, r)
+        terms(c2, "바꾼 조건", new_man * MAN, new_rent, alt)
+        if cut > 0:
+            st.caption(f"보증금을 {won(cut)} 낮추면 월세가 {won(new_rent - d.monthly_rent_won)} 늘어요 (전환율 {rate:g}%). "
+                       f"1년에 {won((new_rent - d.monthly_rent_won) * 12)}을 더 내는 대신, 돌려받지 못할 수 있는 돈이 {won(cut)} 줄어요.")
 
     # 3) 지원
     st.markdown("#### 받을 수 있는 지원")

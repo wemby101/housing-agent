@@ -146,3 +146,28 @@ def test_jeonse_failure_recorded_separately(sources, monkeypatch):
     monkeypatch.setattr(pipeline, "get_market_price", market)
     d = run()
     assert "jeonse" in d.errors and "market" not in d.errors and d.market is not None
+
+
+def test_what_if_recalculates_with_same_house_data(sources):
+    """보증금만 바꿔 다시 계산한다. 공공데이터는 다시 부르지 않고, 근저당·등기부 기록은 그대로 쓴다."""
+    d = run(senior_debt_won=20_000_000, registry_flags=("압류",))
+    calls = len(sources["kinds"])
+    assert "HIGH_RATIO" in {s.code for s in d.risk.signals}  # (2.2억 + 0.2억) ÷ 2.5억 = 96%
+    lower = pipeline.what_if(d, 150_000_000, 0)
+    assert len(sources["kinds"]) == calls
+    assert lower.deposit_ratio == pytest.approx(0.68)  # (1.5억 + 0.2억) ÷ 2.5억
+    codes = {s.code for s in lower.signals}
+    assert "HIGH_RATIO" not in codes and "CAUTION_RATIO" not in codes and "REGISTRY_FLAGS" in codes
+    assert lower.target_deposit_won == d.risk.target_deposit_won
+
+
+def test_what_if_monthly_rent_drops_jeonse_comparison(sources):
+    d = run()
+    assert "JEONSE_NEARBY" in {s.code for s in d.risk.signals}  # 2.2억 ÷ 주변 전세 2억 = 110%
+    assert not {"JEONSE_ABOVE_NEARBY", "JEONSE_NEARBY"} & {s.code for s in pipeline.what_if(d, 150_000_000, 300_000).signals}
+
+
+def test_rent_for_lowered_deposit_uses_conversion_rate():
+    # 5,000만 원을 연 5%로 바꾸면 월 208,333원 → 천 원 단위
+    assert pipeline.rent_for_cut(50_000_000, 5.0) == 208_000
+    assert pipeline.rent_for_cut(0, 5.0) == 0
