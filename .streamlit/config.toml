@@ -1,29 +1,29 @@
-# 적벽돌 바탕 위 흰 패널 + 남색 머리띠(평면도 선), 포인트는 파랑 하나 (벽돌은 style.css)
+# 적벽돌 바탕 위 회벽색 패널 + 건물 명판 머리띠, 포인트는 벽돌색 하나 (벽돌·명판은 style.css)
 # 글꼴은 포트폴리오와 같게: 본문 Noto Sans KR, 숫자·코드 IBM Plex Mono
 [theme]
 base = "light"
-primaryColor = "#2563eb"
-backgroundColor = "#ffffff"            # 흰 패널
-secondaryBackgroundColor = "#f3f6fb"   # 입력칸
-textColor = "#0f172a"
-linkColor = "#1d4ed8"
-borderColor = "#dce3ef"
+primaryColor = "#a5442d"
+backgroundColor = "#fbf7f1"            # 회벽색 패널
+secondaryBackgroundColor = "#f3ece4"   # 입력칸
+textColor = "#2b2320"
+linkColor = "#8f3a25"
+borderColor = "#e3d7ca"
 showWidgetBorder = true
 baseRadius = "10px"
 buttonRadius = "full"                  # 알약 모양 버튼
 headingFontWeights = 800
 font = "Noto Sans KR:https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap, sans-serif"
 codeFont = "IBM Plex Mono:https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&display=swap, monospace"
-# 위험(빨강)·주의(주황)·안내(파랑)
+# 위험(빨강)·주의(주황)·안내(벽돌과 어울리게 탁한 청회색)
 redColor = "#dc2626"
 redTextColor = "#b91c1c"
 redBackgroundColor = "#fdecec"
 yellowColor = "#f59e0b"
 yellowTextColor = "#b45309"
 yellowBackgroundColor = "#fff4dc"
-blueColor = "#2563eb"
-blueTextColor = "#1d4ed8"
-blueBackgroundColor = "#e5edff"
+blueColor = "#4a6578"
+blueTextColor = "#3b5566"
+blueBackgroundColor = "#eaeff1"
 greenTextColor = "#0f8a63"
 greenBackgroundColor = "#e3f6ee"
 
