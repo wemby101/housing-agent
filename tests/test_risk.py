@@ -156,3 +156,18 @@ def test_deposit_near_nearby_jeonse_is_info():
     r = assess_risk(210_000_000, 0, None, None, residential, jeonse=jeonse(200_000_000))
     s = next(s for s in r.signals if s.code == "JEONSE_NEARBY")
     assert s.level == "info" and "20,000만" in s.title and "105%" in s.detail
+
+
+def test_falling_price_warns_with_projected_ratio():
+    from dataclasses import replace
+    r = assess_risk(150_000_000, 0, None, replace(market(200_000_000), trend=-0.10), residential)
+    s = next(s for s in r.signals if s.code == "PRICE_FALLING")
+    assert s.level == "caution" and "10% 떨어졌어요" in s.title
+    assert "83%" in s.detail  # 75% ÷ 0.9: 같은 속도로 1년 더 떨어지면
+
+
+def test_small_or_rising_change_is_not_a_warning():
+    from dataclasses import replace
+    for trend in (-0.04, 0.08, None):
+        r = assess_risk(150_000_000, 0, None, replace(market(200_000_000), trend=trend), residential)
+        assert "PRICE_FALLING" not in codes(r)

@@ -450,3 +450,18 @@ def test_compare_collects_houses_across_diagnoses(calls):
     assert "전세 1억 원" in table and "전세 1억 5,000만 원" in table
     next(b for b in at.button if "비우기" in b.label).click().run()
     assert not any("| **조건** |" in m.value for m in at.markdown)
+
+
+def test_price_trend_chart_and_caption(monkeypatch):
+    from housing.market import MarketEstimate, Trade
+    comps = tuple(Trade(p, 40.0, 2003, "봉천동", "1-70", ym) for p, ym in
+                  [(200_000_000, "202501"), (200_000_000, "202506"), (180_000_000, "202512"), (180_000_000, "202606")])
+    est = MarketEstimate(190_000_000, 4, "same_jibun", 24, comps=comps, trend=-0.10)
+    full = Diagnosis(BONGCHEON, None, None, est, RiskReport("h", [], 1.0, None, None), [], {}, deposit_won=150_000_000)
+    st.cache_data.clear()
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
+    monkeypatch.setattr(housing.pipeline, "diagnose", lambda *a, **k: full)
+    at = submit(deposit=15000)
+    assert any("㎡당 매매가 추이" in m.value for m in at.markdown)
+    assert any("10% 떨어졌어요" in c.value for c in at.caption)
+    assert not at.exception

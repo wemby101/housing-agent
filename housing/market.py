@@ -41,6 +41,7 @@ class MarketEstimate:
     months: int
     kind: str = "rh"  # "rh" 연립다세대 | "apt" 아파트, 전세는 "rh_rent" | "apt_rent"
     comps: tuple[Trade, ...] = ()  # 시세 계산에 쓴 거래 (화면에 근거로 보여 준다)
+    trend: float | None = None  # 최근 12개월 ㎡당 중간값 ÷ 그 전 12개월 − 1 (-0.1 = 10% 하락)
 
 
 def parse_trade(item: dict) -> Trade | None:
@@ -103,7 +104,7 @@ def _jibun_of(addr: Address) -> str:
 
 def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, build_year: int | None) -> MarketEstimate | None:
     def build(comps: list[Trade], basis: str) -> MarketEstimate:
-        per_m2 = median(tr.price_won / tr.area_m2 for tr in comps)
+        per_m2 = _per_m2(comps)
         return MarketEstimate(price_won=round(per_m2 * area_m2), comp_count=len(comps), basis=basis, months=MONTHS,
                               comps=tuple(comps))
 
@@ -117,6 +118,27 @@ def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, bu
         and (build_year is None or (tr.build_year is not None and abs(tr.build_year - build_year) <= 5))
     ]
     return build(similar, "same_dong") if len(similar) >= MIN_COMPS else None
+
+
+def _per_m2(trades: list[Trade]) -> float:
+    return median(tr.price_won / tr.area_m2 for tr in trades)
+
+
+def price_trend(comps, today: date) -> float | None:
+    """최근 12개월과 그 전 12개월의 ㎡당 중간값 변화율. 양쪽에 거래가 3건 이상일 때만 (적으면 한 건에 크게 흔들린다)."""
+    cut = _ym_shift(today, 11)
+    recent, older = [t for t in comps if t.ym >= cut], [t for t in comps if t.ym < cut]
+    if len(recent) < MIN_COMPS or len(older) < MIN_COMPS:
+        return None
+    return _per_m2(recent) / _per_m2(older) - 1
+
+
+def quarterly_per_m2(comps) -> list[tuple[str, int]]:
+    """그래프용: 분기별 ㎡당 가격 중간값 (원), 시간 순서."""
+    by: dict[str, list[Trade]] = {}
+    for t in comps:
+        by.setdefault(f"{t.ym[2:4]}년 {(int(t.ym[4:]) - 1) // 3 + 1}분기", []).append(t)
+    return [(q, round(_per_m2(ts))) for q, ts in sorted(by.items())]
 
 
 def get_market_price(addr: Address, area_m2: float, build_year: int | None, today: date,
@@ -133,4 +155,4 @@ def get_market_price(addr: Address, area_m2: float, build_year: int | None, toda
     if not ok:  # 전부 실패(키 미활성 등)면 오류로 알린다; 일부 달만 실패하면 나머지로 추정
         raise next(r for r in results if isinstance(r, DataSourceError))
     e = estimate_market_price([tr for m in ok for tr in m], addr, area_m2, build_year)
-    return replace(e, kind=kind, months=months) if e else None
+    return replace(e, kind=kind, months=months, trend=price_trend(e.comps, today)) if e else None

@@ -7,6 +7,7 @@ from housing.official_price import OfficialPrice
 
 NO_RISK_HEADLINE = "확인된 위험 신호가 없어요. 단, 등기부등본은 꼭 직접 확인하세요."
 LEVEL_ORDER = ["danger", "caution", "info"]
+PRICE_FALL = 0.05  # 1년 새 ㎡당 중간값이 5% 넘게 떨어지면 주의 (그보다 작은 차이는 거래 구성 차이일 수 있다)
 
 
 @dataclass(frozen=True)
@@ -103,6 +104,13 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
                     f"추정 시세 {man(market.price_won)} 원 (최근 {market.months}개월 비슷한 거래 {market.comp_count}건). "
                     "일반적으로 80% 이상은 위험, 70~80%는 주의로 봐요.",
                     f"국토교통부 {'아파트' if market.kind == 'apt' else '연립다세대'} 매매 실거래가 · 일반적 기준"))
+            if market.trend is not None and market.trend <= -PRICE_FALL:
+                fall = round(-market.trend * 100)
+                signals.append(Signal(
+                    "PRICE_FALLING", "caution", f"최근 1년 시세가 그 전 1년보다 {fall}% 떨어졌어요",
+                    "비슷한 집 거래의 ㎡당 가격 중간값을 비교했어요. 집값이 떨어지면 보증금을 돌려받기 어려워져요. "
+                    f"같은 속도로 1년 더 떨어지면 시세 대비 {int(ratio / (1 + market.trend) * 100)}%가 돼요.",
+                    f"국토교통부 {'아파트' if market.kind == 'apt' else '연립다세대'} 매매 실거래가"))
         elif not market_failed:  # 조회 실패는 화면의 오류 안내가 설명한다
             signals.append(Signal(
                 "NO_MARKET_DATA", "info", "비슷한 매매 거래가 부족해 시세를 추정하지 못했어요",

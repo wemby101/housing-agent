@@ -197,3 +197,33 @@ def test_simultaneous_fetches_of_same_month_do_not_crash(monkeypatch, tmp_path):
         for th in threads:
             th.join()
     assert errors == []
+
+
+def at(price_man, ym):
+    return Trade(price_won=price_man * 10_000, area_m2=40.0, build_year=2003, umd_name="봉천동", jibun="1-70", ym=ym)
+
+
+TODAY = date(2026, 11, 17)  # 최근 12개월 = 2025.12 ~ 2026.11
+
+
+def test_price_trend_compares_last_year_with_year_before():
+    older = [at(20_000, "202501"), at(20_000, "202506"), at(20_000, "202511")]   # ㎡당 500만
+    recent = [at(18_000, "202512"), at(18_000, "202605"), at(18_000, "202610")]  # ㎡당 450만
+    assert market.price_trend(older + recent, TODAY) == pytest.approx(-0.10)
+
+
+def test_price_trend_needs_three_trades_on_each_side():
+    assert market.price_trend([at(20_000, "202501"), at(20_000, "202506"), at(18_000, "202605"),
+                               at(18_000, "202606"), at(18_000, "202607")], TODAY) is None
+
+
+def test_quarterly_points_for_chart():
+    pts = market.quarterly_per_m2([at(20_000, "202511"), at(24_000, "202512"), at(18_000, "202601"), at(16_000, "202603")])
+    assert pts == [("25년 4분기", 5_500_000), ("26년 1분기", 4_250_000)]  # 분기별 ㎡당 중간값, 시간 순서
+
+
+def test_market_price_carries_trend(monkeypatch):
+    months = {"202501": [20_000] * 3, "202605": [18_000] * 3}
+    monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym, kind="rh": [at(p, ym) for p in months.get(ym, [])])
+    e = get_market_price(BONGCHEON, 40.0, 2003, TODAY)
+    assert e.trend == pytest.approx(-0.10)

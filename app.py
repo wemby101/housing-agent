@@ -4,6 +4,7 @@ from pathlib import Path
 from statistics import median
 from urllib.parse import urlencode
 
+import altair as alt
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -11,6 +12,7 @@ from housing import agent
 from housing.address import search_address
 from housing.contract import negotiation_message, special_terms, won
 from housing.errors import DataSourceError
+from housing.market import quarterly_per_m2
 from housing.official_price import list_units
 from housing.pipeline import LEGAL_CONVERSION_PCT, diagnose, rent_for_cut, what_if
 from housing.policies import Profile
@@ -260,6 +262,24 @@ if d is not None:
     if d.building:
         st.caption(f"건축물대장: {d.building.main_purpose} · {d.building.etc_purpose} · {d.building.households}세대 · "
                    f"{d.building.approval_year or '?'}년 사용승인")
+
+    # 2-0) 시세 추이: 분기별 ㎡당 매매가 중간값 (오르는지 떨어지는지)
+    if d.market is not None and len(points := quarterly_per_m2(d.market.comps)) >= 3:
+        with st.container(border=True, key="trend"):
+            st.markdown("**㎡당 매매가 추이** · 비슷한 집 거래의 분기별 중간값")
+            data = alt.Data(values=[{"분기": q, "가격": round(v / MAN)} for q, v in points])
+            base = alt.Chart(data).encode(
+                x=alt.X("분기:O", title=None, sort=None, axis=alt.Axis(labelAngle=0, labelOverlap="greedy", ticks=False)),
+                y=alt.Y("가격:Q", title=None, scale=alt.Scale(zero=False, padding=12),  # 0부터 그리면 변화가 안 보인다
+                        axis=alt.Axis(format=",d", labelExpr="datum.label + '만'", tickCount=4, gridColor="#eadfd3", domain=False)),
+                tooltip=[alt.Tooltip("분기:O"), alt.Tooltip("가격:Q", title="㎡당 가격(만원)", format=",d")])
+            st.altair_chart((base.mark_line(color="#a5442d", strokeWidth=2)
+                             + base.mark_point(color="#a5442d", filled=True, size=70, stroke="#fffdf9", strokeWidth=2))
+                            .properties(height=200).configure_view(stroke=None), use_container_width=True)
+            if d.market.trend is not None:
+                pct = round(d.market.trend * 100)
+                st.caption(f"최근 1년 ㎡당 중간값이 그 전 1년보다 " +
+                           (f"{-pct}% 떨어졌어요." if pct < 0 else f"{pct}% 올랐어요." if pct > 0 else "거의 그대로예요."))
 
     # 2-0) 시세 근거: 추정에 쓴 실거래를 그대로 보여 준다
     for est, what in ((d.market, "추정 매매 시세"), (d.jeonse, "주변 전세 시세")):
