@@ -299,7 +299,7 @@ if d is not None:
             st.markdown("**㎡당 매매가 추이** · 비슷한 집 거래의 분기별 중간값")
             data = alt.Data(values=[{"분기": q, "가격": round(v / MAN)} for q, v in points])
             base = alt.Chart(data).encode(
-                x=alt.X("분기:O", title=None, sort=None, axis=alt.Axis(labelAngle=0, labelOverlap="greedy", ticks=False)),
+                x=alt.X("분기:O", title=None, sort=None, axis=alt.Axis(labelAngle=0, labelOverlap="greedy", labelSeparation=10, labelFlush=True, ticks=False)),
                 y=alt.Y("가격:Q", title=None, scale=alt.Scale(zero=False, padding=12),  # 0부터 그리면 변화가 안 보인다
                         axis=alt.Axis(format=",d", labelExpr="datum.label + '만'", tickCount=4, gridColor="#eadfd3", domain=False)),
                 tooltip=[alt.Tooltip("분기:O"), alt.Tooltip("가격:Q", title="㎡당 가격(만원)", format=",d")])
