@@ -23,7 +23,10 @@ def sources(monkeypatch):
     monkeypatch.setattr(pipeline, "get_official_price", boom)
     monkeypatch.setattr(pipeline, "get_youth_policies", lambda zip_cd, age: [])
 
-    def market(addr, area, year, today, kind):
+    def market(addr, area, year, today, kind, months=24):
+        seen.setdefault("kinds", []).append(kind)
+        if kind.endswith("_rent"):
+            return MarketEstimate(200_000_000, 7, "same_dong", months, kind)
         seen["market_args"] = (area, year, today)
         seen["kind"] = kind
         return MarketEstimate(250_000_000, 3, "same_jibun", 24)
@@ -101,13 +104,13 @@ def test_building_failure_guesses_apartment_from_same_lot_trades(sources, monkey
     monkeypatch.setattr(pipeline, "get_building", boom)
     kinds = []
 
-    def market(addr, area, year, today, kind):
+    def market(addr, area, year, today, kind, months=24):
         kinds.append(kind)
         return MarketEstimate(800_000_000, 92, "same_jibun", 24, kind) if kind == "apt" else None
 
     monkeypatch.setattr(pipeline, "get_market_price", market)
     d = run(manual_official_won=400_000_000, deposit_won=600_000_000)
-    assert kinds == ["apt"] and d.market.kind == "apt"
+    assert kinds == ["apt", "apt_rent"] and d.market.kind == "apt"
     assert next(s for s in d.risk.signals if s.code == "GUARANTEE_BLOCKED").level == "caution"
 
 
@@ -115,10 +118,31 @@ def test_building_failure_falls_back_to_villa_without_same_lot_apartment_trades(
     monkeypatch.setattr(pipeline, "get_building", boom)
     kinds = []
 
-    def market(addr, area, year, today, kind):
+    def market(addr, area, year, today, kind, months=24):
         kinds.append(kind)
         return MarketEstimate(250_000_000, 5, "same_dong", 24, kind)  # 같은 동 아파트 거래는 빌라 근거가 안 된다
 
     monkeypatch.setattr(pipeline, "get_market_price", market)
     d = run(manual_official_won=160_000_000)
-    assert kinds == ["apt", "rh"] and d.market.kind == "rh"
+    assert kinds == ["apt", "rh", "rh_rent"] and d.market.kind == "rh"
+
+
+def test_jeonse_compared_only_for_jeonse_contracts(sources):
+    d = run()
+    assert d.jeonse.price_won == 200_000_000 and sources["kinds"][-1] == "rh_rent"
+    sources["kinds"].clear()
+    d = run(monthly_rent_won=500_000)
+    assert d.jeonse is None and "rh_rent" not in sources["kinds"]
+
+
+def test_jeonse_failure_recorded_separately(sources, monkeypatch):
+    real = pipeline.get_market_price
+
+    def market(addr, area, year, today, kind, months=24):
+        if kind.endswith("_rent"):
+            raise DataSourceError("공공데이터 호출 실패 (HTTP 403)")
+        return real(addr, area, year, today, kind, months)
+
+    monkeypatch.setattr(pipeline, "get_market_price", market)
+    d = run()
+    assert "jeonse" in d.errors and "market" not in d.errors and d.market is not None

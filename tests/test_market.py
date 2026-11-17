@@ -139,3 +139,31 @@ def test_get_market_price_passes_kind(monkeypatch):
 def test_villa_trades_use_current_endpoint():
     # 구 주소(RTMSDataSvcRHTrade)는 키가 있어도 403 SERVICE_KEY_IS_NOT_REGISTERED가 난다 (2026-11-17 확인)
     assert market.TRADE_URLS["rh"].endswith("/RTMSDataSvcRHTrade2/getRTMSDataSvcRHTrade2")
+
+
+RENT = {"deposit": "21,000", "monthlyRent": 0, "excluUseAr": 40.0, "buildYear": 2003, "umdNm": "봉천동",
+        "jibun": "1-70", "contractType": "신규", "dealYear": 2026, "dealMonth": 9}
+
+
+def test_parse_rent_keeps_only_new_jeonse():
+    from housing.market import parse_rent
+    assert parse_rent(RENT).price_won == 210_000_000
+    assert parse_rent({**RENT, "monthlyRent": 50}) is None       # 월세는 보증금끼리 비교가 안 된다
+    assert parse_rent({**RENT, "contractType": "갱신"}) is None  # 갱신은 5% 상한이라 시세보다 낮다
+    assert parse_rent({**RENT, "contractType": " "}).price_won == 210_000_000
+
+
+def test_rent_kind_uses_rent_api_and_parser(monkeypatch, tmp_path):
+    monkeypatch.setattr(market, "CACHE_DIR", tmp_path)
+    urls = []
+    monkeypatch.setattr(market, "call_datagokr", lambda url, params: urls.append(url) or {"totalCount": 2, "items": {"item": [RENT, {**RENT, "monthlyRent": 30}]}})
+    assert len(fetch_trades("11620", "202601", "rh_rent")) == 1
+    assert "RTMSDataSvcRHRent" in urls[0] and (tmp_path / "rh_rent_11620_202601.json").exists()
+    assert "RTMSDataSvcAptRent" in market.TRADE_URLS["apt_rent"]
+
+
+def test_get_market_price_months_option(monkeypatch):
+    asked = []
+    monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym, kind: asked.append(ym) or [t(16_000), t(20_000), t(24_000)])
+    e = get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16), kind="rh_rent", months=12)
+    assert len(asked) == 12 and min(asked) == "202512" and (e.months, e.kind) == (12, "rh_rent")

@@ -140,3 +140,19 @@ def test_market_far_above_official_is_not_trusted():
     r = assess_risk(220_000_000, 0, OfficialPrice(100_000_000, 2026, "x"), market(250_000_000), residential)
     assert "MARKET_DOUBTFUL" in codes(r) and not codes(r) & {"HIGH_RATIO", "CAUTION_RATIO"}
     assert r.deposit_ratio is None and r.target_deposit_won == 126_000_000
+
+
+def jeonse(won, n=7):
+    return MarketEstimate(won, n, "same_dong", 12, "rh_rent")
+
+
+def test_deposit_well_above_nearby_jeonse_is_caution():
+    r = assess_risk(260_000_000, 0, None, None, residential, jeonse=jeonse(200_000_000))
+    s = next(s for s in r.signals if s.code == "JEONSE_ABOVE_NEARBY")
+    assert s.level == "caution" and "30%" in s.title and "20,000만" in s.detail and "7건" in s.detail
+
+
+def test_deposit_near_nearby_jeonse_is_info():
+    r = assess_risk(210_000_000, 0, None, None, residential, jeonse=jeonse(200_000_000))
+    s = next(s for s in r.signals if s.code == "JEONSE_NEARBY")
+    assert s.level == "info" and "20,000만" in s.title and "105%" in s.detail

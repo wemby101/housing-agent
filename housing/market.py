@@ -1,4 +1,4 @@
-"""매매 실거래가(연립다세대·아파트) → 추정 매매시세 (㎡당 가격 중앙값 × 면적)."""
+"""실거래가(연립다세대·아파트 매매, 전세) → 추정 시세 (㎡당 가격 중앙값 × 면적)."""
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -10,9 +10,11 @@ from housing.address import Address
 from housing.datagokr import call_datagokr, items_of
 from housing.errors import DataSourceError
 
-TRADE_URLS = {  # 두 API는 응답 필드가 같다. 활용신청은 따로 해야 한다
+TRADE_URLS = {  # 매매 두 API, 전월세 두 API는 각각 응답 필드가 같다. 활용신청은 API마다 따로 해야 한다
     "rh": "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade2/getRTMSDataSvcRHTrade2",
     "apt": "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade",
+    "rh_rent": "https://apis.data.go.kr/1613000/RTMSDataSvcRHRent/getRTMSDataSvcRHRent",
+    "apt_rent": "https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent",
 }
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
 MONTHS = 24
@@ -36,7 +38,7 @@ class MarketEstimate:
     comp_count: int
     basis: str  # "same_jibun" | "same_dong"
     months: int
-    kind: str = "rh"  # "rh" 연립다세대 | "apt" 아파트
+    kind: str = "rh"  # "rh" 연립다세대 | "apt" 아파트, 전세는 "rh_rent" | "apt_rent"
 
 
 def parse_trade(item: dict) -> Trade | None:
@@ -51,6 +53,14 @@ def parse_trade(item: dict) -> Trade | None:
         jibun=str(item.get("jibun") or "").strip(),
         ym=f"{int(item['dealYear']):04d}{int(item['dealMonth']):02d}",
     )
+
+
+def parse_rent(item: dict) -> Trade | None:
+    """신규 전세 계약만 (월세는 보증금끼리 비교가 안 되고, 갱신은 5% 상한이라 시세보다 낮다)."""
+    if str(item.get("monthlyRent") or "0").replace(",", "").strip() not in ("0", "") \
+            or str(item.get("contractType") or "").strip() == "갱신":
+        return None
+    return parse_trade({**item, "dealAmount": item["deposit"], "cdealType": ""})
 
 
 def _ym_shift(d: date, back: int) -> str:
@@ -79,7 +89,7 @@ def fetch_trades(lawd_cd: str, ym: str, kind: str = "rh") -> list[Trade]:
             tmp.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
             tmp.replace(cache)
     try:
-        return [tr for tr in map(parse_trade, items) if tr]
+        return [tr for tr in map(parse_rent if kind.endswith("_rent") else parse_trade, items) if tr]
     except (KeyError, ValueError, TypeError) as e:
         raise DataSourceError(f"실거래가 응답 형식이 예상과 달라요 ({type(e).__name__}: {e})") from None
 
@@ -107,7 +117,7 @@ def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, bu
 
 
 def get_market_price(addr: Address, area_m2: float, build_year: int | None, today: date,
-                     kind: str = "rh") -> MarketEstimate | None:
+                     kind: str = "rh", months: int = MONTHS) -> MarketEstimate | None:
     def one(ym: str) -> list[Trade] | DataSourceError:
         try:
             return fetch_trades(addr.sigungu_cd, ym, kind)
@@ -115,9 +125,9 @@ def get_market_price(addr: Address, area_m2: float, build_year: int | None, toda
             return e
 
     with ThreadPoolExecutor(max_workers=6) as pool:  # 24개월을 순서대로 부르면 데모에서 너무 느리다
-        results = list(pool.map(one, [_ym_shift(today, back) for back in range(MONTHS)]))
-    months = [r for r in results if not isinstance(r, DataSourceError)]
-    if not months:  # 전부 실패(키 미활성 등)면 오류로 알린다; 일부 달만 실패하면 나머지로 추정
+        results = list(pool.map(one, [_ym_shift(today, back) for back in range(months)]))
+    ok = [r for r in results if not isinstance(r, DataSourceError)]
+    if not ok:  # 전부 실패(키 미활성 등)면 오류로 알린다; 일부 달만 실패하면 나머지로 추정
         raise next(r for r in results if isinstance(r, DataSourceError))
-    e = estimate_market_price([tr for m in months for tr in m], addr, area_m2, build_year)
-    return replace(e, kind=kind) if e else None
+    e = estimate_market_price([tr for m in ok for tr in m], addr, area_m2, build_year)
+    return replace(e, kind=kind, months=months) if e else None

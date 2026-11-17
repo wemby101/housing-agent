@@ -34,7 +34,7 @@ def man(won: int) -> str:
 def assess_risk(deposit_won: int, senior_debt_won: int | None, official: OfficialPrice | None,
                 market: MarketEstimate | None, building: BuildingInfo | None,
                 market_failed: bool = False, building_failed: bool = False,
-                registry_flags: tuple[str, ...] = ()) -> RiskReport:
+                registry_flags: tuple[str, ...] = (), jeonse: MarketEstimate | None = None) -> RiskReport:
     signals: list[Signal] = []
     if registry_flags:
         names = "·".join(registry_flags)
@@ -107,6 +107,20 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
             signals.append(Signal(
                 "NO_MARKET_DATA", "info", "비슷한 매매 거래가 부족해 시세를 추정하지 못했어요",
                 "최근 24개월 같은 건물 또는 같은 동의 비슷한 집 거래가 3건 미만이에요.", "국토교통부 실거래가"))
+        if jeonse is not None:  # 전세 계약일 때만 들어온다
+            pct = round(deposit_won / jeonse.price_won * 100)
+            basis = (f"최근 {jeonse.months}개월 {'같은 건물' if jeonse.basis == 'same_jibun' else '같은 동의 비슷한 집'} "
+                     f"신규 전세 {jeonse.comp_count}건의 ㎡당 중간값으로 계산했어요.")
+            src = f"국토교통부 {'아파트' if jeonse.kind.startswith('apt') else '연립다세대'} 전월세 실거래가"
+            if pct > 110:
+                signals.append(Signal(
+                    "JEONSE_ABOVE_NEARBY", "caution", f"보증금이 주변 전세 시세보다 {pct - 100}% 높아요",
+                    f"주변 비슷한 집 전세 시세는 {man(jeonse.price_won)} 원이에요. {basis} "
+                    "시세보다 높게 낸 보증금은 나중에 돌려받기 더 어려울 수 있어요.", src))
+            else:
+                signals.append(Signal(
+                    "JEONSE_NEARBY", "info", f"주변 비슷한 집 전세 시세는 {man(jeonse.price_won)} 원이에요",
+                    f"내 보증금은 그 {pct}% 수준이에요. {basis}", src))
         caps = [c for c in (limit, market.price_won * 7 // 10 - debt if market else None) if c is not None]
         target = max(min(caps), 0) if caps else None
 

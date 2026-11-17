@@ -22,6 +22,7 @@ class Diagnosis:
     policies: list[PolicyMatch]
     errors: dict[str, str]
     youth: list[YouthPolicy] = field(default_factory=list)  # 온통청년: 이 지역의 다른 청년 주거 정책
+    jeonse: MarketEstimate | None = None  # 주변 전세 시세 (전세 계약일 때만)
 
 
 def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: int,
@@ -55,8 +56,12 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
     if market is None:
         kind = "apt" if building and building.is_apartment else "rh"
         market = attempt("market", get_market_price, address, area_m2, year, today, kind)
+    jeonse = None
+    if deposit_won > 0 and monthly_rent_won == 0:
+        kind = market.kind if market else ("apt" if building and building.is_apartment else "rh")
+        jeonse = attempt("jeonse", get_market_price, address, area_m2, year, today, f"{kind}_rent", 12)  # 전세는 최근 1년이 시세
     risk = assess_risk(deposit_won, senior_debt_won, official, market, building, market_failed="market" in errors,
-                       building_failed="building" in errors, registry_flags=registry_flags)
+                       building_failed="building" in errors, registry_flags=registry_flags, jeonse=jeonse)
     youth = attempt("youth", get_youth_policies, address.sigungu_cd, profile.age) or []
     return Diagnosis(address, building, official, market, risk, match_policies(profile, load_policies(), address.sigungu_cd[:2]),
-                     errors, youth)
+                     errors, youth, jeonse)

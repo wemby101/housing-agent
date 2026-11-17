@@ -17,7 +17,7 @@ from housing.risk import man
 DISCLAIMER = "참고용 진단입니다. 계약 전 공인중개사·HUG(1566-9009) 상담으로 확인하세요."
 MAN = 10_000
 SEARCH_LIMIT = 20
-ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "market": "실거래가 시세", "youth": "온통청년 정책"}
+ERROR_LABELS = {"building": "건축물대장", "official": "공시가격", "market": "실거래가 시세", "jeonse": "주변 전세 시세", "youth": "온통청년 정책"}
 
 st.set_page_config(page_title="청년 집 구하기 진단", page_icon="🏠")
 st.markdown(f"<style>{(Path(__file__).parent / 'style.css').read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
