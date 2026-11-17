@@ -330,3 +330,13 @@ def test_no_income_checkbox_counts_as_zero_income(calls):
     at.button[0].click().run()
     profile = calls[-1][0][7]
     assert profile.age == 21 and profile.income_won == 0
+
+
+def test_no_income_locks_income_at_zero(calls):
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.number_input[INCOME].set_value(2500).run()
+    next(c for c in at.checkbox if "소득 없음" in c.label).check().run()
+    assert at.number_input[INCOME].value == 0 and at.number_input[INCOME].disabled
+    next(c for c in at.checkbox if "소득 없음" in c.label).uncheck().run()
+    assert not at.number_input[INCOME].disabled and at.number_input[INCOME].value is None  # 풀면 다시 직접 입력

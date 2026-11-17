@@ -130,7 +130,8 @@ if (d := st.session_state.get("diagnosis")) is not None and address != d.address
     del st.session_state["diagnosis"]
 
 # 2. 계약·내 정보
-with st.form("diagnose"):
+# 폼(st.form)이 아니라 일반 카드: '소득 없음'을 누르는 즉시 소득칸을 0으로 잠가야 해서. 진단은 버튼을 눌러야만 한다
+with st.container(key="contract"):
     if unit is None:
         c1, c2, c3 = st.columns(3)
         dong = c1.text_input("동 (없으면 비움)", value=link.get("dong", ""))
@@ -158,12 +159,14 @@ with st.form("diagnose"):
     st.markdown("**내 정보**")
     c1, c2 = st.columns(2)
     age = c1.number_input("만 나이", min_value=15, max_value=100, value=None, placeholder="예: 26")
-    income = c2.number_input("세전 연소득 (만원, 기혼이면 부부 합산)", min_value=0, value=None, step=100, placeholder="예: 3000")
+    income = c2.number_input("세전 연소득 (만원, 기혼이면 부부 합산)", min_value=0, value=None, step=100, placeholder="예: 3000",
+                             key="income", disabled=st.session_state.get("no_income", False))
     c1, c2, c3 = st.columns(3)
     married = c1.checkbox("기혼")
     homeless = c2.checkbox("무주택", value=True)
-    no_income = c3.checkbox("소득 없음 (학생 등)")  # 체크하면 소득칸과 상관없이 0원
-    submitted = st.form_submit_button("진단하기", type="primary", use_container_width=True)
+    no_income = c3.checkbox("소득 없음 (학생 등)", key="no_income",  # 체크하면 소득칸을 0원으로 잠근다
+                            on_change=lambda: st.session_state.update(income=0 if st.session_state["no_income"] else None))
+    submitted = st.button("진단하기", type="primary", use_container_width=True)
 
 # 링크로 열면 한 번 자동으로 진단한다 (내 정보는 링크에 없어 지원 정책은 빼고)
 from_link = (not st.session_state.get("link_opened") and "diagnosis" not in st.session_state
