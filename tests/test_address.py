@@ -55,3 +55,8 @@ def test_network_error_message_hides_key(monkeypatch):
     with pytest.raises(DataSourceError) as e:
         search_address("서울시청")
     assert "test-key" not in str(e.value)
+
+
+def test_eup_myeon_name_includes_ri():  # 실거래가 umdNm은 "봉담읍 동화리"처럼 리까지 온다
+    a = parse_juso_row({**CITYHALL_ROW, "emdNm": "봉담읍", "liNm": "동화리"})
+    assert a.emd_name == "봉담읍 동화리"

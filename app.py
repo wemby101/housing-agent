@@ -115,9 +115,10 @@ link = st.session_state["link"]
 
 def link_num(name, default=0):
     try:
-        return type(default)(float(link[name]))
+        v = float(link[name])
     except (KeyError, ValueError):
         return default
+    return type(default)(v) if math.isfinite(v) and v >= 0 else default  # 고친 링크(inf·음수)로 입력칸이 깨지지 않게
 
 
 # 1. 주소
@@ -178,12 +179,12 @@ with st.container(key="contract"):
         c1, c2, c3 = st.columns(3)
         dong = c1.text_input("동 (없으면 비움)", value=link.get("dong", ""))
         ho = c2.text_input("호", value=link.get("ho", ""), placeholder="201")
-        area = c3.number_input("전용면적 (㎡)", min_value=1.0, value=link_num("area", 40.0), step=1.0)
+        area = c3.number_input("전용면적 (㎡)", min_value=1.0, value=max(link_num("area", 40.0), 1.0), step=1.0)
     else:  # 공시자료의 면적을 기본값으로, 실제와 다르면 고칠 수 있게
         dong, ho = unit.dong, unit.ho
         linked = (unit.dong, unit.ho) == (link.get("dong", ""), link.get("ho"))
         area = st.number_input("전용면적 (㎡)", min_value=1.0, step=1.0,
-                               value=link_num("area", 40.0) if linked and "area" in link else unit.area_m2 or 40.0)
+                               value=max(link_num("area", 40.0), 1.0) if linked and "area" in link else unit.area_m2 or 40.0)
 
     c1, c2 = st.columns(2)
     deposit = c1.number_input("보증금 (만원)", min_value=0, value=link_num("dep"), step=500)
@@ -471,7 +472,7 @@ if d is not None:
         *landlord_checks(d),
         "계약서에 위 '계약서 특약' 문구 넣기",
     ]
-    done = set(link.get("done", "").split(",")) - {""}
+    done = set(link.get("done", "").split(",")) - {""} if d.address.pnu == link.get("pnu") else set()  # 링크 속 집일 때만
     checked = [str(i) for i, it in enumerate(items) if st.checkbox(it, value=str(i) in done)]
     if set(checked) != set(st.query_params.get("done", "").split(",")) - {""}:  # 체크한 항목을 링크에 저장해 새로고침해도 남게
         if checked:

@@ -53,3 +53,15 @@ def test_comp_points_group_trades_by_lot(api):
     assert "봉천동 1-70" in home["label"]
     assert [p["label"] for p in others] == ["5-1 · 거래 2건 · ㎡당 550만 원", "9 · 거래 1건 · ㎡당 400만 원"]  # 999는 좌표가 없어 빠진다
     assert set(api) >= {"서울특별시 관악구 봉천동 5-1", "서울특별시 관악구 봉천동 9"}
+
+
+def test_one_failed_lot_does_not_hide_the_map(api, monkeypatch):
+    ok = geocode.demo.get
+
+    def flaky(url, params, timeout):
+        if params["address"].endswith(" 9"):
+            raise geocode.requests.Timeout("slow")
+        return ok(url, params, timeout)
+    monkeypatch.setattr(geocode.demo, "get", flaky)
+    pts = geocode.comp_points(BONGCHEON, (tr(20_000, "5-1"), tr(16_000, "9")))
+    assert [p["home"] for p in pts].count(True) == 1 and len(pts) == 2  # 9번지만 빠진다

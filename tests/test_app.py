@@ -23,7 +23,7 @@ def calls(monkeypatch):
 
     def fake_diagnose(*args, **kwargs):
         seen.append((args, kwargs))
-        return Diagnosis(BONGCHEON, None, None, None, RiskReport("h", [], None, None, None), [], {"market": "데이터를 가져오지 못했어요"},
+        return Diagnosis(args[0], None, None, None, RiskReport("h", [], None, None, None), [], {"market": "데이터를 가져오지 못했어요"},
                          deposit_won=args[4], monthly_rent_won=args[5], policies_checked=args[7] is not None)
 
     monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON])
@@ -501,3 +501,24 @@ def test_map_toggle_draws_points(monkeypatch):
     next(t for t in at.toggle if "지도" in t.label).set_value(True).run()
     assert not at.exception
     assert len(at.get("deck_gl_json_chart")) == 1
+
+
+def test_link_checklist_does_not_carry_to_another_house(calls, monkeypatch):
+    from dataclasses import replace
+    other = replace(BONGCHEON, pnu="1162010100100020000", road_addr="서울특별시 관악구 다른길 2", jibun_addr="서울특별시 관악구 봉천동 2")
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: [BONGCHEON, other])
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.query_params.update({**LINK, "done": "0,1,2,3,4,5"})
+    at.run()
+    assert any(c.value for c in at.checkbox if c.label.startswith("등기부등본"))  # 링크의 집은 체크가 살아 있다
+    at.selectbox[0].select(other).run()
+    at.button[0].click().run()
+    assert not any(c.value for c in at.checkbox if c.label.startswith(("등기부등본", "건축물대장", "계약서에")))
+
+
+@pytest.mark.parametrize("bad", [{"dep": "inf"}, {"dep": "-5"}, {"area": "0"}, {"rent": "nan"}])
+def test_broken_link_numbers_do_not_crash(calls, bad):
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.query_params.update({**LINK, **bad})
+    at.run()
+    assert not at.exception

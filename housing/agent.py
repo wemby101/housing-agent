@@ -199,8 +199,9 @@ POLISH = ("세입자가 집주인이나 공인중개사에게 보낼 메시지�
 
 
 def polish(text: str) -> str:
-    """AI는 말투만 다듬는다. 원문의 숫자가 하나라도 사라지면 쓰지 않는다."""
+    """AI는 말투만 다듬는다. 원문의 숫자가 하나라도 사라지거나 새 숫자가 생기면 쓰지 않는다."""
     out = (_chat([{"role": "system", "content": POLISH}, {"role": "user", "content": text}], tools=None).get("content") or "").strip()
-    if not out or any(n not in out for n in re.findall(r"\d[\d,]*(?:\.\d+)?", text)):
+    nums = re.compile(r"\d[\d,]*(?:\.\d+)?")
+    if not out or set(nums.findall(out)) != set(nums.findall(text)):
         raise AgentError("AI가 숫자를 바꾸거나 빠뜨려서 원래 문장을 그대로 보여 드려요.")
     return out

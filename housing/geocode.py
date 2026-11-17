@@ -63,8 +63,14 @@ def comp_points(addr: Address, comps) -> list[dict]:
     for t in comps:
         lots.setdefault((t.umd_name, t.jibun), []).append(t)
     keys = list(lots)
+
+    def lot(k):  # 지번 하나가 실패해도 나머지로 지도를 그린다 (키 없음 같은 실패는 아래 이 집 조회가 알린다)
+        try:
+            return geocode(f"{prefix} {k[0]} {k[1]}")
+        except DataSourceError:
+            return None
     with ThreadPoolExecutor(max_workers=6) as pool:
-        found = list(pool.map(lambda k: geocode(f"{prefix} {k[0]} {k[1]}"), keys))
+        found = list(pool.map(lot, keys))
         home = geocode(addr.jibun_addr)
     points = [{"lat": home[0], "lon": home[1], "home": True, "count": 0,
                "label": f"이 집 · {addr.jibun_addr.removeprefix(prefix + ' ')}"}] if home else []

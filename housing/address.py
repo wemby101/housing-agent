@@ -35,7 +35,7 @@ def parse_juso_row(row: dict) -> Address:
         building_name=row.get("bdNm", ""),
         sigungu_cd=adm_cd[:5],
         bjdong_cd=adm_cd[5:],
-        emd_name=row.get("emdNm", ""),
+        emd_name=" ".join(filter(None, [row.get("emdNm", ""), row.get("liNm", "")])),  # 실거래가 umdNm과 같게 "봉담읍 동화리"
         plat_gb_cd="1" if is_san else "0",
         bun=bun,
         ji=ji,

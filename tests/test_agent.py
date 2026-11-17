@@ -226,3 +226,10 @@ def test_polish_rejects_changed_numbers(monkeypatch):
         {"role": "assistant", "content": "보증금을 1억 6,000만 원으로 해 주세요."}))
     with pytest.raises(agent.AgentError, match="숫자"):
         agent.polish("보증금을 1억 6,600만 원으로 낮춰 주세요.")
+
+
+def test_polish_rejects_added_numbers(monkeypatch):
+    monkeypatch.setattr(agent.requests, "post", lambda *a, **k: chat_response(
+        {"role": "assistant", "content": "보증금을 1억 6,600만 원으로 낮추고 관리비 10만 원도 부탁드려요."}))
+    with pytest.raises(agent.AgentError, match="숫자"):
+        agent.polish("보증금을 1억 6,600만 원으로 낮춰 주세요.")
