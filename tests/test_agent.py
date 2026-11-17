@@ -143,3 +143,34 @@ def test_overloaded_model_falls_back_to_next(monkeypatch):
     monkeypatch.setattr(agent.requests, "post", post)
     assert agent.reply([{"role": "user", "content": "안녕"}])[0] == "안녕하세요"
     assert len(models) == 2 and models[0] != models[1]
+
+
+def test_youth_list_left_out_when_age_unknown(sources):
+    """나이를 모르면 임시 나이(26세)로 거른 목록이 되므로 AI에게 주지 않는다."""
+    out = agent.run_tool("diagnose_house", json.dumps({"address": "봉천동 1-70", "ho": "201", "deposit_man": 22000}))
+    assert "other_local_youth_housing_policies" not in out
+    out = agent.run_tool("diagnose_house", json.dumps(
+        {"address": "봉천동 1-70", "ho": "201", "deposit_man": 22000, "age": 36, "income_man": 3000}))
+    assert "other_local_youth_housing_policies" in out
+
+
+def test_unexpected_tool_failure_becomes_error_for_ai(sources, monkeypatch):
+    def broken(*a, **k):
+        raise FileNotFoundError("rh_11620_202501.tmp")
+    monkeypatch.setattr(agent, "diagnose", broken)
+    out = agent.run_tool("diagnose_house", json.dumps({"address": "봉천동 1-70", "ho": "201", "deposit_man": 22000}))
+    assert "조회" in out["error"] and ".tmp" not in out["error"]  # 내부 경로는 보이지 않게
+
+
+def test_daily_quota_on_one_model_moves_to_next(monkeypatch):
+    """Gemini 무료 등급은 모델마다 하루 20회라, 한 모델이 다 쓰이면 다음 모델로 넘어간다."""
+    models = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        models.append(json["model"])
+        if len(models) == 1:
+            return FakeResponse('{"error": {"code": 429}}', 429)
+        return chat_response({"role": "assistant", "content": "안녕하세요"})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    assert agent.reply([{"role": "user", "content": "안녕"}])[0] == "안녕하세요" and len(models) == 2

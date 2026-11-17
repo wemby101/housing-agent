@@ -13,8 +13,8 @@ from housing.official_price import list_units
 from housing.pipeline import diagnose
 from housing.policies import Profile
 
-PROVIDERS = {  # 이름: (채팅 API 주소, .env 키 이름, 모델 — 앞 모델이 붐비면(503) 다음 모델)
-    # Gemini 무료 등급은 최신 Flash가 자주 붐빈다 (2026-11-17: 3.7·3.8은 503, 3.6·3.5는 1.5초)
+PROVIDERS = {  # 이름: (채팅 API 주소, .env 키 이름, 모델 — 앞 모델이 붐비거나(503) 한도가 차면(429) 다음 모델)
+    # Gemini 무료 등급은 최신 Flash가 자주 붐비고(2026-11-17: 3.7·3.8은 503), 모델마다 하루 20회 한도라 여럿을 돌린다
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "GEMINI_API_KEY",
                ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"]),
     "groq": ("https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY", ["openai/gpt-oss-120b"]),
@@ -119,9 +119,9 @@ def diagnose_house(address: str, ho: str, deposit_man: int, pick: int = 0, dong:
         "safe_deposit_target_man": _man(r.target_deposit_won),
         "building": f"{d.building.main_purpose} {d.building.etc_purpose} {d.building.approval_year or ''}년" if d.building else None,
         "data_errors": d.errors,
-        "other_local_youth_housing_policies": [y.name for y in d.youth],
     }
-    if known:
+    if known:  # 나이를 모르면 임시 나이로 걸러진 목록이라 주지 않는다
+        out["other_local_youth_housing_policies"] = [y.name for y in d.youth]
         out["policies"] = [{"name": m.policy["name"], "status": "조건 충족" if m.status == "eligible" else "추가 확인 필요",
                             "max_benefit_man": _man(m.policy["benefit_max_won"]), "benefit": m.policy["benefit_text"]}
                            for m in d.policies]
@@ -141,6 +141,8 @@ def run_tool(name: str, arguments: str) -> dict:
         return {"error": str(e)}
     except (ValueError, TypeError, IndexError) as e:  # 잘못된 인자·후보 번호
         return {"error": f"도구 인자가 잘못됐어요 ({type(e).__name__}: {e})"}
+    except Exception as e:  # 예상 못 한 실패도 채팅을 멈추지 않고 AI가 설명하게 한다
+        return {"error": f"공공데이터 조회 중 문제가 생겼어요 ({type(e).__name__}). 잠시 뒤 다시 시도하거나 폼으로 진단해 달라고 안내하세요."}
 
 
 def _chat(messages: list[dict]) -> dict:
@@ -154,12 +156,12 @@ def _chat(messages: list[dict]) -> dict:
                 "model": model, "messages": messages, "tools": TOOLS, "reasoning_effort": "low"})
         except requests.RequestException as e:  # 메시지에 키가 든 헤더가 섞일 수 있어 그대로 쓰지 않는다
             raise AgentError(f"AI 연결 실패 ({type(e).__name__})") from None
-        if resp.status_code != 503:
+        if resp.status_code not in (429, 503):
             break
     if resp.status_code == 503:
         raise AgentError("AI 서버가 붐벼요. 잠시 뒤에 다시 물어봐 주세요.")
     if resp.status_code == 429:
-        raise AgentError("무료 AI 사용 한도에 걸렸어요. 1분쯤 뒤에 다시 물어봐 주세요.")
+        raise AgentError("오늘 무료 AI 사용 한도를 다 썼어요. 아래 폼으로 진단해 주세요.")
     if resp.status_code >= 400:
         raise AgentError(f"AI 응답 오류 (HTTP {resp.status_code})")
     try:

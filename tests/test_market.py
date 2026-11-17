@@ -167,3 +167,32 @@ def test_get_market_price_months_option(monkeypatch):
     monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym, kind: asked.append(ym) or [t(16_000), t(20_000), t(24_000)])
     e = get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16), kind="rh_rent", months=12)
     assert len(asked) == 12 and min(asked) == "202512" and (e.months, e.kind) == (12, "rh_rent")
+
+
+def test_simultaneous_fetches_of_same_month_do_not_crash(monkeypatch, tmp_path):
+    """심사위원 여럿이 같은 데모 링크를 동시에 열면 같은 달을 동시에 받아 캐시에 쓴다."""
+    import threading
+    monkeypatch.setattr(market, "CACHE_DIR", tmp_path)
+    errors = []
+    for n in range(30):
+        ym = f"2024{n % 12 + 1:02d}" if n < 12 else f"2023{n % 12 + 1:02d}" if n < 24 else f"2022{n % 12 + 1:02d}"
+        gate = threading.Barrier(2)
+
+        def fake_call(url, params):
+            gate.wait()  # 두 요청이 같은 순간에 캐시를 쓰게 한다
+            return {"totalCount": 1, "items": {"item": [ITEM]}}
+
+        monkeypatch.setattr(market, "call_datagokr", fake_call)
+
+        def run():
+            try:
+                fetch_trades("11620", ym)
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=run) for _ in range(2)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+    assert errors == []

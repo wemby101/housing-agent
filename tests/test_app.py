@@ -245,8 +245,11 @@ def test_chat_error_is_shown_not_crashing(monkeypatch):
     monkeypatch.setattr(housing.agent, "reply", fail)
     at = AppTest.from_file(APP, default_timeout=10)
     at.run()
-    at.chat_input[0].set_value("안녕").run()
+    at.chat_input[0].set_value("봉천동 1-70 201호 괜찮아?").run()
     assert not at.exception and any("한도" in e.value for e in at.error)
+    at.run()  # 다시 그려도 방금 쓴 질문은 남아 있어 다시 칠 필요가 없다
+    assert [m.markdown[0].value for m in at.chat_message] == ["봉천동 1-70 201호 괜찮아?"]
+    assert at.session_state["chat"] == [{"role": "user", "content": "봉천동 1-70 201호 괜찮아?"}]
 
 
 def test_chat_hidden_without_key(monkeypatch):

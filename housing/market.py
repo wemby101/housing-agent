@@ -1,5 +1,6 @@
 """실거래가(연립다세대·아파트 매매, 전세) → 추정 시세 (㎡당 가격 중앙값 × 면적)."""
 import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from datetime import date
@@ -85,7 +86,7 @@ def fetch_trades(lawd_cd: str, ym: str, kind: str = "rh") -> list[Trade]:
             page += 1
         if ym < _ym_shift(date.today(), 1):  # 지난달·이번 달은 신고가 계속 들어오므로 캐시하지 않음
             CACHE_DIR.mkdir(exist_ok=True)
-            tmp = cache.with_suffix(".tmp")
+            tmp = cache.with_suffix(f".{threading.get_ident()}.tmp")  # 여러 사람이 같은 달을 동시에 받아도 서로 덮어쓰지 않게
             tmp.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
             tmp.replace(cache)
     try:

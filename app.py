@@ -41,6 +41,7 @@ if agent.available():  # 키가 없으면 폼만 보인다
                     answer, st.session_state["chat"] = agent.reply([*chat, {"role": "user", "content": question}])
                     st.markdown(answer)
                 except agent.AgentError as e:
+                    st.session_state["chat"] = [*chat, {"role": "user", "content": question}]  # 질문은 남겨 둔다
                     st.error(str(e))
 
 
