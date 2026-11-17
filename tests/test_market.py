@@ -126,3 +126,8 @@ def test_get_market_price_passes_kind(monkeypatch):
     monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym, kind: kinds.append(kind) or [t(16_000), t(24_000)])
     e = get_market_price(BONGCHEON, 40.0, 2003, date(2026, 11, 16), kind="apt")
     assert set(kinds) == {"apt"} and e.kind == "apt"
+
+
+def test_villa_trades_use_current_endpoint():
+    # 구 주소(RTMSDataSvcRHTrade)는 키가 있어도 403 SERVICE_KEY_IS_NOT_REGISTERED가 난다 (2026-11-17 확인)
+    assert market.TRADE_URLS["rh"].endswith("/RTMSDataSvcRHTrade2/getRTMSDataSvcRHTrade2")

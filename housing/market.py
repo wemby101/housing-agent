@@ -11,7 +11,7 @@ from housing.datagokr import call_datagokr, items_of
 from housing.errors import DataSourceError
 
 TRADE_URLS = {  # 두 API는 응답 필드가 같다. 활용신청은 따로 해야 한다
-    "rh": "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade",
+    "rh": "https://apis.data.go.kr/1613000/RTMSDataSvcRHTrade2/getRTMSDataSvcRHTrade2",
     "apt": "https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade",
 }
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache"
