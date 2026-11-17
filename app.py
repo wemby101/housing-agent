@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from housing import agent
 from housing.address import search_address
@@ -210,6 +211,30 @@ if d is not None:
     st.divider()
     with st.container(key="addr-plate"):
         st.subheader(d.address.road_addr)
+    if submitted:  # 방금 진단했으면 결과(집 주소판)로 내려간다. 슬라이더 등 다른 조작 때는 움직이지 않는다
+        st.session_state["scrolls"] = st.session_state.get("scrolls", 0) + 1
+        with st.container(key="scroll-js"):
+            components.html(f"""<script>/* {st.session_state["scrolls"]} */
+                const go = (n) => {{ const el = window.parent.document.querySelector('.st-key-addr-plate');
+                  if (el) el.scrollIntoView({{behavior: 'smooth', block: 'start'}}); else if (n) setTimeout(() => go(n - 1), 100); }};
+                go(30);</script>""", height=0)
+
+    # 한눈 요약: 시세 대비 비율(막대) · 협상 목표 · 받을 수 있는 지원
+    eligible_total = sum(m.policy["benefit_max_won"] or 0 for m in d.policies if m.status == "eligible")
+    k1, k2, k3 = st.columns(3)
+    k1.metric("시세 대비 보증금", "-" if r.deposit_ratio is None else f"{int(r.deposit_ratio * 100)}%",
+              help="(보증금 + 선순위 채권) ÷ 추정 매매시세. 70% 이상 주의, 80% 이상 깡통전세 위험.")
+    k2.metric("협상 목표 보증금", "-" if r.target_deposit_won is None else
+              f"{man(r.target_deposit_won)} 원 이하" if d.deposit_won > r.target_deposit_won else "지금도 목표 이하",
+              help="보증보험 한도와 추정 시세 × 70% 중 낮은 값에서 선순위 채권을 뺀 금액.")
+    k3.metric("받을 수 있는 지원", f"{man(eligible_total)} 원" if d.policies_checked else "내 정보 필요",
+              help="조건을 충족한 현금 지원의 최대 금액 합계. 나이·소득을 넣어야 찾을 수 있어요.")
+    if r.deposit_ratio is not None:
+        pct = min(int(r.deposit_ratio * 100), 100)
+        st.markdown(  # 0~70% 무난 · 70~80% 주의 · 80% 이상 위험, 내 위치에 표시
+            f'<div class="risk-bar" role="img" aria-label="시세 대비 {int(r.deposit_ratio * 100)}%, 70% 이상 주의, 80% 이상 위험">'
+            f'<i style="left: {pct}%"></i><span style="left: 70%">70%</span><span style="left: 80%">80%</span></div>',
+            unsafe_allow_html=True)
     top = r.signals[0].level if r.signals else "info"
     {"danger": st.error, "caution": st.warning}.get(top, st.info)(
         ("⚠️ " if top in ("danger", "caution") else "") + r.headline)
@@ -263,7 +288,6 @@ if d is not None:
 
     # 3) 지원
     st.markdown("#### 받을 수 있는 지원")
-    eligible_total = sum(m.policy["benefit_max_won"] or 0 for m in d.policies if m.status == "eligible")
     if not d.policies_checked:
         st.info("위 '내 정보'에 만 나이와 세전 연소득(소득이 없으면 '소득 없음' 체크)을 넣고 다시 진단하면 "
                 "받을 수 있는 지원을 찾아 드려요.")

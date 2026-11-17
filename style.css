@@ -60,8 +60,23 @@ h2, h3, h4 { letter-spacing: -0.02em !important; }
 }
 .st-key-addr-plate [data-testid="stHeaderActionElements"] { display: none; }
 
+.st-key-scroll-js { display: none; }  /* 결과로 내려가는 스크립트만 담는 칸 */
+
+/* 시세 대비 막대: 0~70% 무난 · 70~80% 주의 · 80% 이상 위험, 검은 표시가 내 위치 */
+.risk-bar {
+  position: relative; height: 14px; margin: 4px 0 28px; border-radius: 7px;
+  background: linear-gradient(90deg, #d9cbbd 0 70%, #f0b45a 70% 80%, #c8432f 80% 100%);
+}
+.risk-bar i {
+  position: absolute; top: -5px; width: 4px; height: 24px; margin-left: -2px;
+  background: #2b2320; border-radius: 2px; box-shadow: 0 0 0 2px #fbf7f1;
+}
+.risk-bar span { position: absolute; top: 18px; transform: translateX(-50%); font-size: .75rem; color: #6e5f57; }
+
 /* 지표 숫자: 자릿수 폭을 맞춘다 (고정폭 글꼴은 '만 원' 한글과 섞이면 어색해서 쓰지 않음) */
-[data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+[data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; font-size: 1.9rem; }
+[data-testid="stMetricValue"] > div { white-space: normal; overflow: visible; }  /* "16,691만 원 이하"가 … 로 잘리지 않게 */
+.st-key-addr-plate { scroll-margin-top: 1.5rem; }  /* 진단 후 자동 스크롤이 판을 화면 끝에 붙이지 않게 */
 
 @media (max-width: 640px) {
   [data-testid="stMainBlockContainer"] { margin: 1rem .5rem 2rem; padding: 1rem .75rem 1.5rem; border-radius: 14px; }

@@ -366,3 +366,23 @@ def test_negotiation_target_hidden_when_deposit_already_below(monkeypatch):
     at.number_input[RENT].set_value(150)
     at.button[0].click().run()
     assert not any(c.label.startswith("보증금 협상 목표") for c in at.checkbox)
+
+
+def summary(at):
+    return {m.label: m.value for m in at.metric}
+
+
+def test_result_starts_with_three_key_numbers_and_ratio_bar(monkeypatch):
+    at = jeonse_result(monkeypatch)
+    s = summary(at)
+    assert s["시세 대비 보증금"] == "92%" and s["협상 목표 보증금"] == "16,691만 원 이하"
+    assert s["받을 수 있는 지원"] == "0만 원"  # 조건 충족 지원이 없을 때
+    bar = next(m.value for m in at.markdown if 'class="risk-bar"' in m.value)
+    assert "left: 92%" in bar and "시세 대비 92%" in bar  # 화면 읽기 프로그램용 설명도
+
+
+def test_summary_without_market_or_my_info(calls):
+    at = submit()  # 가짜 진단: 시세 없음, 나이·소득 없음
+    s = summary(at)
+    assert s["시세 대비 보증금"] == "-" and s["받을 수 있는 지원"] == "내 정보 필요"
+    assert not any('class="risk-bar"' in m.value for m in at.markdown)
