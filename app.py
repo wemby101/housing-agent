@@ -215,9 +215,13 @@ with st.container(key="contract"):
                              key="income", disabled=st.session_state.get("no_income", False))
     c1, c2, c3 = st.columns(3)
     married = c1.checkbox("기혼")
-    homeless = c2.checkbox("무주택", value=True)
+    homeless = c2.checkbox("무주택", value=True, help="기혼이면 부부 모두 무주택")
     no_income = c3.checkbox("소득 없음 (학생 등)", key="no_income",  # 체크하면 소득칸을 0원으로 잠근다
                             on_change=lambda: st.session_state.update(income=0 if st.session_state["no_income"] else None))
+    c1, c2 = st.columns(2)  # 체크 안 하면 '모름' — 정책에서 빼지 않고 '추가 확인 필요'로 둔다
+    lives_apart = c1.checkbox("부모와 따로 살아요", help="주민등록·건강보험 모두 부모와 따로. 체크하면 내 소득으로 기준 중위소득 %를 계산해요.")
+    assets_ok = c2.checkbox("재산 1.2억 원 이하·자동차 2,500만 원 미만",
+                            help="본인(기혼이면 부부) 재산. 전월세 보증금·예금·토지·건물·자동차를 모두 더해요.")
     submitted = st.button("진단하기", type="primary", use_container_width=True)
 
 # 링크로 열면 한 번 자동으로 진단한다 (내 정보는 링크에 없어 지원 정책은 빼고)
@@ -235,7 +239,7 @@ if submitted and address is not None and deposit == 0 and rent == 0:
 elif submitted and address is not None:
     income = 0 if no_income else income
     profile = None if age is None or income is None else Profile(  # 나이·소득을 모르면 정책은 찾지 않는다
-        age=int(age), income_won=int(income) * MAN, married=married, homeless=homeless,
+        age=int(age), income_won=int(income) * MAN, married=married, homeless=homeless, lives_apart=lives_apart, assets_ok=assets_ok,
         deposit_won=int(deposit) * MAN, monthly_rent_won=int(rent) * MAN, area_m2=float(area) or None)
     senior = None if debt_unknown and debt == 0 else int(debt) * MAN  # 입력한 채권은 '모름'보다 우선
     st.session_state["senior_debt"] = senior or 0

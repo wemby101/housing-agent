@@ -553,3 +553,19 @@ def test_broken_link_numbers_do_not_crash(calls, bad):
     at.query_params.update({**LINK, **bad})
     at.run()
     assert not at.exception
+
+
+def test_living_apart_and_assets_boxes_reach_profile(calls):
+    """체크하면 중위소득·재산 조건을 코드로 판정해 '확인 필요'가 '조건 충족'으로 바뀐다."""
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.text_input[0].input("봉천동 1-70").run()
+    at.selectbox[0].select(BONGCHEON).run()
+    at.number_input[DEPOSIT].set_value(10000)
+    at.number_input[AGE].set_value(27)
+    next(c for c in at.checkbox if "소득 없음" in c.label).check()
+    next(c for c in at.checkbox if "부모와 따로" in c.label).check()
+    next(c for c in at.checkbox if "재산" in c.label).check()
+    at.button[0].click().run()
+    profile = calls[-1][0][7]
+    assert profile.lives_apart and profile.assets_ok

@@ -6,6 +6,8 @@ from pathlib import Path
 from housing.risk import man
 
 DEFAULT_PATH = str(Path(__file__).resolve().parent.parent / "data" / "policies.json")
+# 2026년 기준 중위소득 (월, 원) — 보건복지부 고시. 따로 사는 청년가구는 1인(기혼이면 부부 2인)만 쓴다
+MEDIAN_INCOME_2026 = {1: 2_564_238, 2: 4_199_292}
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,8 @@ class Profile:
     deposit_won: int
     monthly_rent_won: int
     area_m2: float | None = None  # 계약할 집의 전용면적, 모르면 None
+    lives_apart: bool = False  # 부모와 따로 삶 (주민등록·건강보험도 따로) — False는 '모름'
+    assets_ok: bool = False  # 본인 재산(보증금 포함) 1.2억 원 이하·자동차 2,500만 원 미만 — False는 '모름'
 
     @property
     def contract_type(self) -> str:
@@ -69,6 +73,32 @@ def _check(profile: Profile, p: dict) -> tuple[list[str], list[str]] | None:
             return None
         else:
             reasons.append(f"전용면적 {profile.area_m2:g}㎡ ≤ {p['max_area_m2']:g}㎡")
+    if p.get("max_transaction_won") is not None:  # 거래금액 = 보증금 + 월세 × 100
+        amount = profile.deposit_won + profile.monthly_rent_won * 100
+        if amount > p["max_transaction_won"]:
+            return None
+        reasons.append(f"거래금액(보증금 + 월세 × 100) {man(amount)} 원 ≤ {man(p['max_transaction_won'])} 원")
+    if p.get("median_income_pct"):
+        lo, hi = p["median_income_pct"]
+        span = f"{lo or 0}% 초과~{hi}% 이하" if lo else f"{hi}% 이하"
+        if not profile.lives_apart:  # 부모와 같이 살면 가구 소득에 부모 소득이 들어가 계산할 수 없다
+            unverified.append(f"가구 소득 기준 중위소득 {span} (부모와 같이 살면 부모 소득 포함)")
+        else:
+            size = 2 if profile.married else 1
+            pct = round(profile.income_won / 12 / MEDIAN_INCOME_2026[size] * 100)
+            if pct > hi:
+                return None
+            if lo and pct <= lo:  # 학생 등은 빼지 않고 안내 — 서울 공고: 48% 이하는 주거급여·국토부 청년월세 대상
+                unverified.append(f"가구 소득이 기준 중위소득 {lo}% 이하({pct}%)라 대상이 아닐 수 있어요. 주거급여·국토부 청년월세를 먼저 확인")
+            else:
+                reasons.append(f"{size}인 가구 소득 기준 중위소득 {pct}% ({span})")
+    if p.get("lives_apart_required"):
+        if profile.lives_apart:
+            reasons.append("부모와 따로 삶")
+        else:
+            unverified.append("부모님과 따로 사는 청년")
+    if p.get("assets_text"):
+        (reasons if profile.assets_ok else unverified).append(p["assets_text"])
     if p.get("homeless_required"):
         if not profile.homeless:
             return None

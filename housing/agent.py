@@ -59,7 +59,9 @@ TOOLS = [
             "age": {"type": "integer", "description": "만 나이. 모르면 비움"},
             "income_man": {"type": "integer", "description": "세전 연소득 (만원, 기혼이면 부부 합산). 모르면 비움"},
             "married": {"type": "boolean"},
-            "homeless": {"type": "boolean", "description": "무주택 여부 (기본 true)"}},
+            "homeless": {"type": "boolean", "description": "무주택 여부 (기본 true, 기혼이면 부부 모두)"},
+            "lives_apart": {"type": "boolean", "description": "부모와 따로 사는지 (주민등록·건강보험도 따로). 사용자가 말했을 때만 true"},
+            "assets_ok": {"type": "boolean", "description": "본인 재산(보증금 포함) 1.2억 원 이하·자동차 2,500만 원 미만. 사용자가 말했을 때만 true"}},
             "required": ["address", "ho", "deposit_man"]}}},
 ]
 
@@ -97,7 +99,8 @@ def search_houses(query: str) -> dict:
 
 def diagnose_house(address: str, ho: str, deposit_man: int, pick: int = 0, dong: str = "", area_m2: float | None = None,
                    monthly_rent_man: int = 0, senior_debt_man: int | None = None, age: int | None = None,
-                   income_man: int | None = None, married: bool = False, homeless: bool = True) -> dict:
+                   income_man: int | None = None, married: bool = False, homeless: bool = True,
+                   lives_apart: bool = False, assets_ok: bool = False) -> dict:
     found = search_address(address, limit=10)
     if not found:
         return {"error": "주소를 찾지 못했어요. 도로명이나 지번을 다시 확인해 달라고 하세요."}
@@ -114,7 +117,8 @@ def diagnose_house(address: str, ho: str, deposit_man: int, pick: int = 0, dong:
             return {"error": f"{addr.road_addr} {ho}호의 전용면적을 공시자료에서 찾지 못했어요. 전용면적(㎡)을 물어보세요."}
         dong, area_m2 = unit.dong, unit.area_m2
     known = age is not None and income_man is not None
-    profile = Profile(age or 26, (income_man or 0) * MAN, married, homeless, deposit_man * MAN, monthly_rent_man * MAN, area_m2)
+    profile = Profile(age or 26, (income_man or 0) * MAN, married, homeless, deposit_man * MAN, monthly_rent_man * MAN, area_m2,
+                      lives_apart, assets_ok)
     d = diagnose(addr, dong, ho, float(area_m2), deposit_man * MAN, monthly_rent_man * MAN,
                  None if senior_debt_man is None else senior_debt_man * MAN, profile, today=date.today())
     r = d.risk

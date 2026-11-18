@@ -24,7 +24,11 @@
   "min_deposit_won": null,
   "max_income_won_newlywed": 75000000,
   "regions": [],
-  "max_area_m2": null
+  "max_area_m2": null,
+  "median_income_pct": null,
+  "lives_apart_required": false,
+  "assets_text": null,
+  "max_transaction_won": null
  },
  {
   "id": "monthly_rent",
@@ -53,7 +57,11 @@
   "regions": [
    "11"
   ],
-  "max_area_m2": null
+  "max_area_m2": null,
+  "median_income_pct": null,
+  "lives_apart_required": false,
+  "assets_text": null,
+  "max_transaction_won": null
  },
  {
   "id": "any_loan",
@@ -78,6 +86,10 @@
   "min_deposit_won": null,
   "max_income_won_newlywed": null,
   "regions": [],
-  "max_area_m2": null
+  "max_area_m2": null,
+  "median_income_pct": null,
+  "lives_apart_required": false,
+  "assets_text": null,
+  "max_transaction_won": null
  }
 ]
