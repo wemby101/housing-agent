@@ -275,3 +275,37 @@ def test_rewrite_that_changes_numbers_keeps_original(monkeypatch):
     monkeypatch.setattr(agent.requests, "post", lambda *a, **k: chat_response({"role": "assistant", "content": next(answers)}))
     text, _ = agent.reply([{"role": "user", "content": "괜찮아?"}])
     assert "92%" in text  # 숫자를 바꾼 다시 쓰기는 버린다
+
+
+def test_after_groq_takes_over_gemini_is_not_asked_again_in_same_reply(monkeypatch):
+    """Groq이 도구를 부른 뒤 Gemini로 돌아가면 Gemini가 사고 서명 없는 기록을 400으로 거부한다."""
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+    monkeypatch.setattr(agent, "run_tool", lambda name, args: {"ok": True})
+    groq = iter([{"role": "assistant", "content": None, "tool_calls": [
+        {"id": "c1", "type": "function", "function": {"name": "search_address", "arguments": "{}"}}]},
+        {"role": "assistant", "content": "결론이에요"}])
+    asked = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        asked.append(json["model"])
+        if "googleapis" in url:
+            return FakeResponse("{}", 400 if any(m.get("tool_calls") for m in json["messages"]) else 503)
+        return chat_response(next(groq))
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    text, _ = agent.reply([{"role": "user", "content": "봉천동 1-70"}])
+    assert text == "결론이에요"
+    assert asked.count("gemini-3.6-flash") == 1  # 실패한 모델을 단계마다 다시 기다리지 않는다
+
+
+def test_gemini_rejecting_earlier_groq_history_falls_back(monkeypatch):
+    """이전 질문을 Groq이 답했으면 다음 질문에서 Gemini가 400을 낼 수 있다 → 다음 모델로."""
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+
+    def post(url, headers=None, json=None, timeout=None):
+        if "googleapis" in url:
+            return FakeResponse("{}", 400)
+        return chat_response({"role": "assistant", "content": "안녕하세요"})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    assert agent.reply([{"role": "user", "content": "안녕"}])[0] == "안녕하세요"

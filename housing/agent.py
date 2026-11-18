@@ -14,7 +14,7 @@ from housing.official_price import list_units
 from housing.pipeline import diagnose
 from housing.policies import Profile
 
-PROVIDERS = [  # (채팅 API 주소, .env 키 이름, 모델) — 붐비거나(503) 한도가 차면(429) 다음 모델, 30초 안에 응답이 없으면 다음 제공사
+PROVIDERS = [  # (채팅 API 주소, .env 키 이름, 모델) — 붐비거나(503) 한도가 차거나(429) 기록을 거부하면(400) 다음 모델, 30초 안에 응답이 없으면 다음 제공사
     # Gemini 무료 등급은 답이 가장 깔끔하지만 모델마다 하루 20회라 여럿을 돌린다 (2026-11-17: 3.7·3.8은 503)
     ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "GEMINI_API_KEY",
      ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"]),
@@ -156,10 +156,11 @@ def run_tool(name: str, arguments: str) -> dict:
         return {"error": f"공공데이터 조회 중 문제가 생겼어요 ({type(e).__name__}). 잠시 뒤 다시 시도하거나 폼으로 진단해 달라고 안내하세요."}
 
 
-def _chat(messages: list[dict], tools: list | None = TOOLS) -> dict:
-    resp, down = None, set()
+def _chat(messages: list[dict], tools: list | None = TOOLS, failed: set | None = None) -> dict:
+    """failed: 한 답변 안에서 실패한 모델·제공사. 다음 단계에서 다시 기다리지 않게 reply가 넘겨준다."""
+    resp, failed = None, set() if failed is None else failed
     for url, key, model in _models():
-        if url in down:
+        if url in failed or model in failed:
             continue
         gemini = "googleapis" in url
         try:
@@ -167,10 +168,12 @@ def _chat(messages: list[dict], tools: list | None = TOOLS) -> dict:
                 "model": model, "messages": [_plain(m, gemini) for m in messages], **({"tools": tools} if tools else {}),
                 "reasoning_effort": "low"})
         except requests.RequestException:  # 응답이 없으면 같은 제공사의 다른 모델도 기다리지 않고 다음 제공사로
-            down.add(url)
+            failed.add(url)
             continue
-        if resp.status_code not in (429, 503):
+        # 400: Groq이 만든 도구 호출 기록에는 사고 서명이 없어 Gemini가 거부한다 → 다음 모델이 이어받게
+        if resp.status_code not in (400, 429, 503):
             break
+        failed.add(model)
     if resp is None:  # 오류 메시지에는 키가 든 헤더가 섞일 수 있어 원문을 쓰지 않는다
         raise AgentError("AI가 응답하지 않아요. 잠시 뒤에 다시 물어보거나 아래 폼으로 진단해 주세요.")
     if resp.status_code == 503:
@@ -189,11 +192,11 @@ FOREIGN = re.compile(r"[぀-ヿ㐀-䶿一-鿿฀-๿]")  # 한자·가나·태�
 NUMS = re.compile(r"\d[\d,]*(?:\.\d+)?")
 
 
-def _hangul_only(messages: list[dict], text: str) -> str:
+def _hangul_only(messages: list[dict], text: str, failed: set) -> str:
     """한 번만 한글로 다시 받는다. 실패하거나 숫자가 바뀌면 원래 답을 쓴다."""
     try:
         out = (_chat([*messages, {"role": "user", "content": "방금 답에 한자나 외국 글자가 섞였어. 숫자와 내용은 그대로 두고 "
-                                  "한글로만 다시 써 줘. 다시 쓴 답만 보여 줘."}], tools=None).get("content") or "").strip()
+                                  "한글로만 다시 써 줘. 다시 쓴 답만 보여 줘."}], tools=None, failed=failed).get("content") or "").strip()
     except AgentError:
         return text
     if not out or FOREIGN.search(out) or set(NUMS.findall(out)) != set(NUMS.findall(text)):
@@ -203,15 +206,15 @@ def _hangul_only(messages: list[dict], text: str) -> str:
 
 def reply(history: list[dict]) -> tuple[str, list[dict]]:
     """대화 기록(user/assistant/tool 메시지)을 받아 답과 늘어난 기록을 돌려준다."""
-    messages = [{"role": "system", "content": SYSTEM}, *history]
+    messages, failed = [{"role": "system", "content": SYSTEM}, *history], set()
     for _ in range(MAX_STEPS):
-        msg = _chat(messages)
+        msg = _chat(messages, failed=failed)
         messages.append(msg)  # 받은 그대로: Gemini의 사고 서명(extra_content)을 다음 요청에 돌려줘야 한다
         calls = msg.get("tool_calls") or []
         if not calls:
             text = msg.get("content") or ""
             if FOREIGN.search(text):  # 지시문에 한국어만 쓰라고 해도 한자 등이 가끔 섞인다
-                text = _hangul_only(messages, text)
+                text = _hangul_only(messages, text, failed)
                 messages[-1] = {**msg, "content": text}
             return text, messages[1:]
         for c in calls:
