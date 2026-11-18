@@ -4,6 +4,7 @@ AI 제공사는 OpenAI 호환 채팅 API를 쓴다. 키가 있는 제공사를 G
 import json
 import os
 import re
+import time
 from datetime import date
 
 import requests
@@ -16,8 +17,9 @@ from housing.policies import Profile
 
 PROVIDERS = [  # (채팅 API 주소, .env 키 이름, 모델) — 붐비거나(503) 한도가 차거나(429) 기록을 거부하면(400) 다음 모델, 30초 안에 응답이 없으면 다음 제공사
     # Gemini 무료 등급은 답이 가장 깔끔하지만 모델마다 하루 20회라 여럿을 돌린다 (2026-11-17: 3.7·3.8은 503)
+    # 시간 초과면 남은 Gemini를 건너뛰므로 가장 빠른 모델이 먼저 (2026-11-18: preview 2.5초, 3.6 20초, 3.5 60초 초과)
     ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "GEMINI_API_KEY",
-     ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"]),
+     ["gemini-3-flash-preview", "gemini-3.6-flash", "gemini-3.5-flash"]),
     # Groq 무료 등급은 분당 한도가 작아 예비로만 쓴다. gpt-oss는 숫자를 지어내거나 틀려서(2026-11-17 비교) qwen만
     ("https://api.groq.com/openai/v1/chat/completions", "GROQ_API_KEY", ["qwen/qwen3.8-27b"]),
 ]
@@ -34,7 +36,7 @@ SYSTEM = """너는 청년의 전월세 계약 전 위험을 진단해 주는 상
 - 지원 정책은 나이와 세전 연소득을 알아야 찾을 수 있어. 진단을 먼저 하고, 모르면 나중에 물어봐.
 - 주소 검색 결과가 여러 개고 어느 집인지 애매하면 사용자에게 골라 달라고 해.
 - 도구가 error를 주면 무엇이 필요한지 사용자에게 쉽게 말해.
-- 답은 한국어(한글)로만 짧게 써. 영어·중국어·태국어 등 다른 나라 글자나 단어를 섞지 마. 순서는 한 줄 결론 → 핵심 이유 2~3개 → 계약 전에 할 일. 제목(#)은 쓰지 말고 굵은 글씨와 목록만 써. 금액은 "2억 2,000만 원"처럼 읽기 쉽게.
+- 답은 한국어(한글) 해요체 존댓말로만 짧게 써. 금액·비율은 도구 결과 값을 반올림하지 말고 그대로 써. 영어·중국어·태국어 등 다른 나라 글자나 단어를 섞지 마. 순서는 한 줄 결론 → 핵심 이유 2~3개 → 계약 전에 할 일. 제목(#)은 쓰지 말고 굵은 글씨와 목록만 써. 금액은 "2억 2,000만 원"처럼 읽기 쉽게.
 - 법률 자문이 아니라 참고용이라는 점, 계약 전 공인중개사·HUG(1566-9009) 확인을 마지막에 한 줄로 안내해."""
 
 TOOLS = [
@@ -167,10 +169,16 @@ def _chat(messages: list[dict], tools: list | None = TOOLS, failed: set | None =
         if url in failed or model in failed:
             continue
         gemini = "googleapis" in url
+        body = {"model": model, "messages": [_plain(m, gemini) for m in messages], **({"tools": tools} if tools else {}),
+                "reasoning_effort": "low",
+                # Groq 무료 등급은 분당 출력 1,000토큰이고 요청한 상한을 미리 뺀다 → 연달아 불러도 들어가게 600
+                **({} if gemini else {"max_completion_tokens": 600})}
         try:
-            resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=(5, 30), json={
-                "model": model, "messages": [_plain(m, gemini) for m in messages], **({"tools": tools} if tools else {}),
-                "reasoning_effort": "low"})
+            resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=(5, 30), json=body)
+            wait = float((getattr(resp, "headers", None) or {}).get("retry-after") or "inf")
+            if resp.status_code == 429 and not gemini and wait <= 5:  # 토큰이 잠깐 모자랄 때만 — 하루 한도면 길게 준다
+                time.sleep(wait)
+                resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=(5, 30), json=body)
         except requests.RequestException:  # 응답이 없으면 같은 제공사의 다른 모델도 기다리지 않고 다음 제공사로
             failed.add(url)
             continue

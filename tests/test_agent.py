@@ -309,3 +309,46 @@ def test_gemini_rejecting_earlier_groq_history_falls_back(monkeypatch):
 
     monkeypatch.setattr(agent.requests, "post", post)
     assert agent.reply([{"role": "user", "content": "안녕"}])[0] == "안녕하세요"
+
+
+def test_groq_request_fits_free_output_token_limit(monkeypatch):
+    """Groq 무료 등급은 분당 출력 토큰 1,000개 — 상한 없이 보내면 요청 자체를 429로 거절한다(2026-11-18 배포판)."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+    sent = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        sent.append(json)
+        return chat_response({"role": "assistant", "content": "안녕하세요"})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    agent.reply([{"role": "user", "content": "안녕"}])
+    assert 0 < sent[0]["max_completion_tokens"] <= 600  # 1,000에서 직전 요청분을 빼고도 들어가게
+
+
+def test_fastest_gemini_model_is_tried_first():
+    """2026-11-18 측정: 3-flash-preview 2.5초, 3.6-flash 20초, 3.5-flash 60초 초과 — 시간 초과면 남은 Gemini를 건너뛰니 빠른 모델이 먼저."""
+    assert agent.PROVIDERS[0][2][0] == "gemini-3-flash-preview"
+
+
+def test_groq_short_rate_wait_is_retried_once(monkeypatch):
+    """Groq은 분당 토큰이 잠깐 모자라면 retry-after(초)를 준다 — 짧으면 기다렸다 한 번 더 부른다."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+    slept, answers = [], [FakeResponse('{"error": {}}', 429), chat_response({"role": "assistant", "content": "안녕하세요"})]
+    answers[0].headers = {"retry-after": "2"}
+    monkeypatch.setattr(agent.requests, "post", lambda *a, **k: answers.pop(0))
+    monkeypatch.setattr(agent.time, "sleep", slept.append)
+    assert agent.reply([{"role": "user", "content": "안녕"}])[0] == "안녕하세요"
+    assert slept == [2.0]
+
+
+def test_groq_long_rate_wait_is_not_waited(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+    resp = FakeResponse('{"error": {}}', 429)
+    resp.headers = {"retry-after": "40"}
+    monkeypatch.setattr(agent.requests, "post", lambda *a, **k: resp)
+    monkeypatch.setattr(agent.time, "sleep", lambda s: pytest.fail("40초나 기다림"))
+    with pytest.raises(agent.AgentError, match="한도"):
+        agent.reply([{"role": "user", "content": "안녕"}])

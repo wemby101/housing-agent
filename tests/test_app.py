@@ -569,3 +569,15 @@ def test_living_apart_and_assets_boxes_reach_profile(calls):
     at.button[0].click().run()
     profile = calls[-1][0][7]
     assert profile.lives_apart and profile.assets_ok
+
+
+def test_unit_list_shows_dong_suffix(calls, monkeypatch):
+    """브이월드는 동을 '1'처럼 숫자만 준다 → '1 202호'가 아니라 '1동 202호'로 보인다."""
+    from housing.official_price import Unit
+    monkeypatch.setattr(housing.official_price, "list_units",
+                        lambda addr: [Unit("1", "202", 101.75), Unit("102동", "502", 84.9), Unit("", "201", 41.01)])
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.text_input[0].input("봉천동 1-70").run()
+    at.selectbox[0].select(BONGCHEON).run()
+    assert at.selectbox[1].options == ["1동 202호 · 전용 101.75㎡", "102동 502호 · 전용 84.9㎡", "201호 · 전용 41.01㎡"]

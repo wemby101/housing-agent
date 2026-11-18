@@ -158,7 +158,7 @@ if address is not None and (units := cached_units(address)):
         "호 선택", units,
         index=next((i for i, u in enumerate(units) if (u.dong, u.ho) == (link.get("dong", ""), link.get("ho"))), None),
         placeholder="호를 골라 주세요 (목록에 없으면 비워 두고 아래에 직접 입력)",
-        format_func=lambda u: " ".join(filter(None, [u.dong, f"{u.ho}호"])) + (f" · 전용 {u.area_m2:g}㎡" if u.area_m2 else ""),
+        format_func=lambda u: " ".join(filter(None, [u.dong + "동" * (u.dong.isascii() and u.dong.isalnum()), f"{u.ho}호"])) + (f" · 전용 {u.area_m2:g}㎡" if u.area_m2 else ""),
     )
 
 reading = None
