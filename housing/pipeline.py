@@ -67,10 +67,17 @@ def diagnose(address: Address, dong: str, ho: str, area_m2: float, deposit_won: 
     if market is None:
         kind = "apt" if building and building.is_apartment else "rh"
         market = attempt("market", get_market_price, address, area_m2, year, today, kind)
+
+    def guessed(m):  # 건축물대장 '실패'로 건축년도 없이 고른 같은 동 거래 — 새 건물이 섞여 시세가 부푼다 (원래 없는 대장은 그대로)
+        return "building" in errors and m is not None and m.basis == "same_dong" and not m.year_known
+    if guessed(market):
+        errors["market"] = "건축물대장을 못 가져와 건축년도가 비슷한 거래를 고르지 못했어요. 잠시 뒤 다시 진단해 주세요."
+        market = None
     jeonse = None
     if deposit_won > 0 and monthly_rent_won == 0:
         kind = market.kind if market else ("apt" if building and building.is_apartment else "rh")
         jeonse = attempt("jeonse", get_market_price, address, area_m2, year, today, f"{kind}_rent", 12)  # 전세는 최근 1년이 시세
+        jeonse = None if guessed(jeonse) else jeonse
     risk = assess_risk(deposit_won, senior_debt_won, official, market, building, market_failed="market" in errors,
                        building_failed="building" in errors, registry_flags=registry_flags, jeonse=jeonse)
     # 나이·소득을 모르면(profile=None) 임시 값으로 고르지 않고 정책 찾기를 건너뛴다

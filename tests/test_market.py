@@ -227,3 +227,12 @@ def test_market_price_carries_trend(monkeypatch):
     monkeypatch.setattr(market, "fetch_trades", lambda lawd, ym, kind="rh": [at(p, ym) for p in months.get(ym, [])])
     e = get_market_price(BONGCHEON, 40.0, 2003, TODAY)
     assert e.trend == pytest.approx(-0.10)
+
+
+def test_unknown_build_year_taken_from_same_jibun_trades():
+    """건축물대장을 못 가져와도 같은 지번 거래에 건축년도가 있으면 그걸로 비슷한 집을 고른다 (새 건물 거래가 섞여 시세가 부풀지 않게)."""
+    from housing.market import estimate_market_price
+    trades = [t(20000, jibun="1-70"), t(21000, jibun="5"), t(22000, jibun="6"), t(23000, jibun="7"),
+              t(60000, year=2022, jibun="8"), t(61000, year=2022, jibun="9"), t(62000, year=2022, jibun="10")]
+    e = estimate_market_price(trades, BONGCHEON, 40.0, None)
+    assert e.comp_count == 4 and all(c.build_year == 2003 for c in e.comps)

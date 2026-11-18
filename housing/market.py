@@ -42,6 +42,7 @@ class MarketEstimate:
     kind: str = "rh"  # "rh" 연립다세대 | "apt" 아파트, 전세는 "rh_rent" | "apt_rent"
     comps: tuple[Trade, ...] = ()  # 시세 계산에 쓴 거래 (화면에 근거로 보여 준다)
     trend: float | None = None  # 최근 12개월 ㎡당 중간값 ÷ 그 전 12개월 − 1 (-0.1 = 10% 하락)
+    year_known: bool = True  # 같은 동 거래를 건축년도 ±5년으로 걸렀는지 (모르면 새 건물이 섞여 부풀 수 있다)
 
 
 def parse_trade(item: dict) -> Trade | None:
@@ -106,12 +107,14 @@ def estimate_market_price(trades: list[Trade], addr: Address, area_m2: float, bu
     def build(comps: list[Trade], basis: str) -> MarketEstimate:
         per_m2 = _per_m2(comps)
         return MarketEstimate(price_won=round(per_m2 * area_m2), comp_count=len(comps), basis=basis, months=MONTHS,
-                              comps=tuple(comps))
+                              comps=tuple(comps), year_known=build_year is not None)
 
     same_dong = [tr for tr in trades if tr.umd_name == addr.emd_name and tr.area_m2 > 0]
     same_jibun = [tr for tr in same_dong if tr.jibun == _jibun_of(addr)]
     if len(same_jibun) >= MIN_COMPS:
         return build(same_jibun, "same_jibun")
+    if build_year is None:  # 건축물대장이 없거나 실패 — 건축년도 조건이 빠지면 새 건물 거래가 섞여 시세가 부푼다
+        build_year = next((tr.build_year for tr in same_jibun if tr.build_year), None)
     similar = [
         tr for tr in same_dong
         if abs(tr.area_m2 - area_m2) <= area_m2 * 0.2

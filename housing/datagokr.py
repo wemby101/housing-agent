@@ -33,12 +33,13 @@ def _xml_body(text: str) -> dict:
 
 
 def call_datagokr(url: str, params: dict) -> dict:
-    """응답의 response.body를 돌려준다. 키 오류·결과코드 오류는 DataSourceError. 일시 오류는 한 번 다시 부른다."""
-    try:
-        return _call(url, params)
-    except _Transient:
-        time.sleep(1)  # 과부하(503)에 바로 다시 부르면 또 실패한다
-        return _call(url, params)
+    """응답의 response.body를 돌려준다. 키 오류·결과코드 오류는 DataSourceError. 일시 오류는 두 번까지 다시 부른다."""
+    for wait in (1, 2):  # 과부하(503)에 바로 다시 부르면 또 실패한다 — 배포 서버(해외)에선 연달아 오기도 한다
+        try:
+            return _call(url, params)
+        except _Transient:
+            time.sleep(wait)
+    return _call(url, params)
 
 
 def _call(url: str, params: dict) -> dict:

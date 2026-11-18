@@ -190,3 +190,24 @@ def test_monthly_interest_on_loan():
 def test_default_youth_loan_is_80_percent_up_to_limit():
     assert pipeline.default_loan(150_000_000) == 120_000_000
     assert pipeline.default_loan(220_000_000) == 150_000_000  # 청년전용 버팀목 한도
+
+
+def test_building_failure_hides_market_estimated_without_build_year(sources, monkeypatch):
+    """건축물대장 실패로 건축년도를 모른 채 고른 같은 동 거래는 새 건물이 섞여 시세가 부푼다(연남동 +34%).
+    보증금이 안전해 보이는 틀린 숫자 대신 다시 진단하라고 알린다."""
+    monkeypatch.setattr(pipeline, "get_building", boom)
+
+    def market(addr, area, year, today, kind, months=24):
+        return None if kind == "apt" else MarketEstimate(320_000_000, 42, "same_dong", 24, kind, year_known=False)
+
+    monkeypatch.setattr(pipeline, "get_market_price", market)
+    d = run(manual_official_won=160_000_000)
+    assert d.market is None and d.jeonse is None
+    assert "건축년도" in d.errors["market"] and "다시" in d.errors["market"]
+
+
+def test_same_lot_estimate_kept_when_building_fails(sources, monkeypatch):
+    monkeypatch.setattr(pipeline, "get_building", boom)
+    monkeypatch.setattr(pipeline, "get_market_price",
+                        lambda addr, area, year, today, kind, months=24: MarketEstimate(250_000_000, 3, "same_jibun", 24, kind, year_known=False))
+    assert run(manual_official_won=160_000_000).market.price_won == 250_000_000

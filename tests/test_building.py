@@ -152,3 +152,13 @@ def test_key_error_is_not_retried(monkeypatch):
     with pytest.raises(DataSourceError):
         call_datagokr("https://example", {})
     assert len(calls) == 1
+
+
+def test_overload_is_retried_twice_with_longer_waits(monkeypatch):
+    """배포 서버(해외)에서 data.go.kr 503이 연달아 와서(2026-11-18 연남동) 건축물대장이 빠지면 시세가 34% 높게 나왔다."""
+    pages = ["<html>503</html>", "<html>503</html>", RTMS_XML_OK]
+    monkeypatch.setattr(datagokr.requests, "get", lambda url, params=None, timeout=None: FakeResponse(pages.pop(0)))
+    slept = []
+    monkeypatch.setattr(datagokr.time, "sleep", slept.append)
+    assert int(call_datagokr("https://example", {})["totalCount"]) == 2
+    assert slept == [1, 2]
