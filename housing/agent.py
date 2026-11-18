@@ -86,7 +86,7 @@ def _plain(m: dict, gemini: bool) -> dict:
 
 
 def _man(won):
-    return None if won is None else round(won / MAN)
+    return None if won is None else won // MAN  # 화면(risk.man)과 같이 버림: 목표 보증금을 넘겨 말하지 않게
 
 
 def search_houses(query: str) -> dict:

@@ -23,8 +23,8 @@ def _key(monkeypatch):
 
 def fake_diagnosis(*args, **kwargs):
     official = OfficialPrice(281_000_000, 2026, "브이월드 공동주택가격")
-    mkt = MarketEstimate(238_450_000, 51, "same_dong", 24)
-    jeonse = MarketEstimate(183_420_000, 8, "same_dong", 12, "rh_rent")
+    mkt = MarketEstimate(238_449_000, 51, "same_dong", 24)  # 만 원 아래 자투리: 반올림과 버림이 갈린다
+    jeonse = MarketEstimate(183_427_000, 8, "same_dong", 12, "rh_rent")
     bld = BuildingInfo("공동주택", "다세대주택", 9, 2003, True)
     risk = assess_risk(220_000_000, 0, official, mkt, bld, jeonse=jeonse)
     prof = args[7]
@@ -50,7 +50,9 @@ def test_diagnose_tool_finds_area_from_unit_and_reports_code_numbers(sources):
     args = sources["args"]
     assert (args[2], args[3], args[4], args[5], args[6]) == ("201", 41.01, 220_000_000, 0, None)  # 모르는 근저당은 None
     assert out["headline"].startswith("보증금이 추정 시세의 92%")
-    assert out["estimated_market_price_man"] == 23845 and out["nearby_jeonse_price_man"] == 18342
+    # 화면(risk.man)처럼 만 원 미만은 버린다: 반올림하면 AI 답이 화면과 1만 원 어긋나고 목표 보증금을 넘는다
+    assert out["estimated_market_price_man"] == 23844 and out["nearby_jeonse_price_man"] == 18342
+    assert out["safe_deposit_target_man"] == 16691  # 238,449,000 × 70% = 166,914,300원 → 화면도 16,691만
     assert {s["title"] for s in out["signals"]} >= {"보증금이 주변 전세 시세보다 20% 높아요"}
     assert "policies" not in out and "나이" in out["policies_note"]  # 나이·소득을 모르면 정책을 지어내지 않는다
 
