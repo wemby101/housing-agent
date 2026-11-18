@@ -34,6 +34,21 @@ class PolicyMatch:
     reasons: list[str]
 
 
+@dataclass(frozen=True)
+class BenefitSummary:
+    eligible: int
+    check_needed: int
+    largest: PolicyMatch | None  # 최대 금액이 가장 큰 현금 지원 ('확인 필요'여도) — 없으면 None
+
+
+def summarize(matches: list[PolicyMatch]) -> BenefitSummary:
+    """금액은 더하지 않는다 — 서울·국토부 청년월세처럼 같이 받을 수 없는 지원이 있어 합계가 부풀기 때문."""
+    cash = [m for m in matches if m.policy.get("benefit_max_won")]
+    largest = max(cash, key=lambda m: (m.policy["benefit_max_won"], m.status == "eligible"), default=None)
+    eligible = sum(m.status == "eligible" for m in matches)
+    return BenefitSummary(eligible, len(matches) - eligible, largest)
+
+
 def load_policies(path: str = DEFAULT_PATH) -> list[dict]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -81,17 +96,18 @@ def _check(profile: Profile, p: dict) -> tuple[list[str], list[str]] | None:
     if p.get("median_income_pct"):
         lo, hi = p["median_income_pct"]
         span = f"{lo or 0}% 초과~{hi}% 이하" if lo else f"{hi}% 이하"
+        size = 2 if profile.married else 1
+        pct = round(profile.income_won / 12 / MEDIAN_INCOME_2026[size] * 100)
+        # shortcut: 체크가 없어도(=모름) 본인 소득이 1인(부부) 기준 상한을 넘으면 뺀다 — 직접 계약하는 청년은 대개 따로 사는 가구.
+        # 저소득 부모와 같이 사는 청년은 빠질 수 있다 (그 경우 부모 가구로 신청), 가구원 수 입력이 생기면 바꾼다
+        if pct > hi:
+            return None
         if not profile.lives_apart:  # 부모와 같이 살면 가구 소득에 부모 소득이 들어가 계산할 수 없다
             unverified.append(f"가구 소득 기준 중위소득 {span} (부모와 같이 살면 부모 소득 포함)")
+        elif lo and pct <= lo:  # 서울 공고: 48% 이하는 주거급여·국토부 청년월세 대상 (정책표에 함께 있다)
+            return None
         else:
-            size = 2 if profile.married else 1
-            pct = round(profile.income_won / 12 / MEDIAN_INCOME_2026[size] * 100)
-            if pct > hi:
-                return None
-            if lo and pct <= lo:  # 학생 등은 빼지 않고 안내 — 서울 공고: 48% 이하는 주거급여·국토부 청년월세 대상
-                unverified.append(f"가구 소득이 기준 중위소득 {lo}% 이하({pct}%)라 대상이 아닐 수 있어요. 주거급여·국토부 청년월세를 먼저 확인")
-            else:
-                reasons.append(f"{size}인 가구 소득 기준 중위소득 {pct}% ({span})")
+            reasons.append(f"{size}인 가구 소득 기준 중위소득 {pct}% ({span})")
     if p.get("lives_apart_required"):
         if profile.lives_apart:
             reasons.append("부모와 따로 삶")

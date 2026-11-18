@@ -97,7 +97,7 @@ def test_real_table_regions_by_city():
 
 
 def test_incheon_35_to_39_gets_incheon_rent_not_molit():
-    p = Profile(**{**JEONSE, "age": 37, "deposit_won": 10_000_000, "monthly_rent_won": 500_000})
+    p = Profile(**{**JEONSE, "age": 37, "income_won": 15_000_000, "deposit_won": 10_000_000, "monthly_rent_won": 500_000})
     got = ids(match_policies(p, load_policies(), region="28"))
     assert "incheon_youth_monthly_rent" in got and "molit_youth_monthly_rent" not in got
 
@@ -142,11 +142,21 @@ def test_household_income_over_150_percent_excluded():
     assert "seoul_youth_monthly_rent" not in by_id(Profile(**{**SEOUL_MONTHLY, "income_won": 70_000_000}, lives_apart=True))
 
 
-def test_income_below_48_percent_is_flagged_not_dropped():
-    """48% 이하는 서울 대신 주거급여·국토부 청년월세 대상 — 학생을 조용히 빼지 않고 안내한다."""
+def test_income_at_or_below_48_percent_gets_housing_benefit_instead_of_seoul_rent():
+    """서울 공고: 48% 이하는 서울 청년월세 대상이 아니고 주거급여·국토부 청년월세로 — 목록도 그렇게 바뀐다."""
     m = by_id(Profile(**{**SEOUL_MONTHLY, "income_won": 10_000_000}, lives_apart=True, assets_ok=True))
-    assert m["seoul_youth_monthly_rent"].status == "check_needed"
-    assert any("48%" in r for r in m["seoul_youth_monthly_rent"].reasons)
+    assert "seoul_youth_monthly_rent" not in m
+    assert m["housing_benefit"].status == "check_needed"  # 소득인정액(재산 환산 포함)은 앱이 계산 못 한다
+    assert m["molit_youth_monthly_rent"].status == "check_needed"
+
+
+def test_housing_benefit_dropped_above_48_percent():
+    assert "housing_benefit" not in by_id(Profile(**SEOUL_MONTHLY, lives_apart=True))  # 97%
+
+
+def test_housing_benefit_listed_for_jeonse_too_when_household_unknown():
+    m = by_id(Profile(**{**SEOUL_MONTHLY, "income_won": 10_000_000, "deposit_won": 50_000_000, "monthly_rent_won": 0}))
+    assert m["housing_benefit"].status == "check_needed"
 
 
 def test_married_couple_uses_two_person_median():
@@ -172,3 +182,23 @@ def test_brokerage_transaction_amount_over_200m_excluded():
     """거래금액 = 보증금 1.5억 + 월세 60만 × 100 = 2.1억 > 2억."""
     assert "seoul_youth_brokerage_moving" not in by_id(Profile(**{**SEOUL_MONTHLY, "deposit_won": 150_000_000, "monthly_rent_won": 600_000}))
     assert "seoul_youth_brokerage_moving" in by_id(Profile(**SEOUL_MONTHLY))
+
+
+def test_own_income_over_limit_drops_policy_even_without_living_apart_box():
+    """체크가 없어도(=모름) 본인 소득만으로 1인 기준 상한을 넘으면 뺀다 — 연봉 7천에게 주거급여 '확인 필요'가 뜨지 않게."""
+    m = by_id(Profile(**{**SEOUL_MONTHLY, "income_won": 70_000_000}))
+    assert "housing_benefit" not in m and "seoul_youth_monthly_rent" not in m and "molit_youth_monthly_rent" not in m
+
+
+def test_benefit_summary_counts_and_picks_largest_even_if_unconfirmed():
+    """금액을 더하지 않는다(서울·국토부 월세는 보통 같이 못 받음). 가장 큰 혜택은 '확인 필요'여도 보여 준다."""
+    from housing.policies import summarize
+    s = summarize(match_policies(Profile(**{**SEOUL_MONTHLY, "income_won": 15_000_000}, lives_apart=True, assets_ok=True),
+                                 REAL, region="11"))
+    assert (s.eligible, s.check_needed) == (3, 2)  # 확정: 보증료·서울 월세(49%)·이자지원 / 확인: 국토부 월세·중개보수 (주거급여는 48% 초과라 빠짐)
+    assert s.largest.policy["id"] == "molit_youth_monthly_rent" and s.largest.status == "check_needed"
+
+
+def test_benefit_summary_without_cash_benefits():
+    from housing.policies import summarize
+    assert summarize([]).largest is None

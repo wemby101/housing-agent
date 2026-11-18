@@ -19,7 +19,7 @@ from housing.market import quarterly_per_m2
 from housing.official_price import list_units
 from housing.pipeline import (LEGAL_CONVERSION_PCT, YOUTH_LOAN_RATE_PCT, default_loan, diagnose, monthly_interest,
                               rent_for_cut, what_if)
-from housing.policies import Profile
+from housing.policies import Profile, summarize
 from housing.registry import read_registry_pdf
 from housing.report import build_report
 from housing.risk import man
@@ -275,15 +275,22 @@ if d is not None:
                 go(30);</script>""", height=0)
 
     # 한눈 요약: 시세 대비 비율(막대) · 협상 목표 · 받을 수 있는 지원
-    eligible_total = sum(m.policy["benefit_max_won"] or 0 for m in d.policies if m.status == "eligible")
+    benefits = summarize(d.policies)
+    top = benefits.largest
+    benefit_line = (f"확정 {benefits.eligible}개 · 확인 필요 {benefits.check_needed}개"
+                    + (f" · 가장 큰 혜택: {top.policy['name']} 최대 {man(top.policy['benefit_max_won'])} 원"
+                       + ("" if top.status == "eligible" else " (확인 필요)") if top else ""))
     k1, k2, k3 = st.columns(3)
     k1.metric("시세 대비 보증금", "-" if r.deposit_ratio is None else f"{int(r.deposit_ratio * 100)}%",
               help="(보증금 + 선순위 채권) ÷ 추정 매매시세. 70% 이상 주의, 80% 이상 깡통전세 위험.")
     k2.metric("협상 목표 보증금", "-" if r.target_deposit_won is None else
               f"{man(r.target_deposit_won)} 원 이하" if d.deposit_won > r.target_deposit_won else "지금도 목표 이하",
               help="보증보험 한도와 추정 시세 × 70% 중 낮은 값에서 선순위 채권을 뺀 금액.")
-    k3.metric("받을 수 있는 지원", f"{man(eligible_total)} 원" if d.policies_checked else "내 정보 필요",
-              help="조건을 충족한 현금 지원의 최대 금액 합계. 나이·소득을 넣어야 찾을 수 있어요.")
+    k3.metric("받을 수 있는 지원", f"{len(d.policies)}개" if d.policies_checked else "내 정보 필요",
+              help="조건 충족과 추가 확인 필요를 합친 개수. 같이 받을 수 없는 지원이 있어 금액은 더하지 않아요. "
+                   "나이·소득을 넣어야 찾을 수 있어요.")
+    if d.policies_checked and d.policies:
+        k3.caption(benefit_line)
     if r.deposit_ratio is not None:
         pct = min(int(r.deposit_ratio * 100), 100)
         st.markdown(  # 0~70% 무난 · 70~80% 주의 · 80% 이상 위험, 내 위치에 표시
@@ -451,11 +458,10 @@ if d is not None:
                 "받을 수 있는 지원을 찾아 드려요.")
     elif not d.policies:
         st.write("입력한 조건으로 맞는 지원을 찾지 못했어요.")
-    elif eligible_total == 0:
-        st.info("조건 충족이 확정된 현금 지원은 아직 없어요. 아래 '추가 확인 필요' 항목의 조건을 확인해 보세요.")
     else:
-        st.metric("조건 충족 지원의 최대 금액 합계", f"{man(eligible_total)} 원",
-                  help="'확인 필요' 정책과 대출 이자지원은 합계에서 빠져요.")
+        st.markdown(f"**{benefit_line}**")
+        st.caption("서울시 청년월세와 국토부 청년월세처럼 같이 받을 수 없는 지원이 있어 금액은 더하지 않아요. "
+                   "'추가 확인 필요'는 펼쳐서 남은 조건을 확인하세요.")
     for m in d.policies:
         p = m.policy
         badge = "✅ 조건 충족" if m.status == "eligible" else "🔎 추가 확인 필요"

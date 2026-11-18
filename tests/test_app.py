@@ -406,7 +406,7 @@ def test_result_starts_with_three_key_numbers_and_ratio_bar(monkeypatch):
     at = jeonse_result(monkeypatch)
     s = summary(at)
     assert s["시세 대비 보증금"] == "92%" and s["협상 목표 보증금"] == "16,691만 원 이하"
-    assert s["받을 수 있는 지원"] == "0만 원"  # 조건 충족 지원이 없을 때
+    assert s["받을 수 있는 지원"] == "0개"  # 맞는 지원이 없을 때
     bar = next(m.value for m in at.markdown if 'class="risk-bar"' in m.value)
     assert "left: 92%" in bar and "시세 대비 92%" in bar  # 화면 읽기 프로그램용 설명도
 

@@ -103,6 +103,41 @@
   "max_transaction_won": null
  },
  {
+  "id": "housing_benefit",
+  "name": "주거급여 (임차급여)",
+  "contract_types": [
+   "any"
+  ],
+  "min_age": null,
+  "max_age": null,
+  "max_income_won": null,
+  "max_income_won_married": null,
+  "max_deposit_won": null,
+  "max_monthly_rent_won": null,
+  "homeless_required": true,
+  "benefit_max_won": null,
+  "benefit_text": "실제 내는 월세(전세는 보증금을 월세로 환산) 범위에서 기준임대료까지 매달 지원. 2026년 1인 가구 기준 서울 월 36만 9천 원, 경기·인천 월 30만 원 (2인 41만 4천 원 / 33만 5천 원). 기간 제한 없이 자격이 유지되는 동안 받아요. 주소지 행정복지센터나 복지로에서 신청",
+  "documents": [],
+  "apply_url": "https://www.bokjiro.go.kr",
+  "source_url": "https://www.molit.go.kr/USR/I0204/m_45/dtl.jsp?idx=18653",
+  "checked_date": "2026-11-18",
+  "unverifiable_conditions": [
+   "소득인정액(소득 + 재산을 소득으로 환산한 금액)이 기준 중위소득 48% 이하",
+   "부모와 같이 살면 부모 포함 가구 기준. 부모가 주거급여 수급 가구면 만 19~29세 미혼 청년은 따로 사는 집 월세를 분리지급 받을 수 있음"
+  ],
+  "min_deposit_won": null,
+  "max_income_won_newlywed": null,
+  "regions": [],
+  "max_area_m2": null,
+  "median_income_pct": [
+   null,
+   48
+  ],
+  "lives_apart_required": false,
+  "assets_text": null,
+  "max_transaction_won": null
+ },
+ {
   "id": "seoul_youth_deposit_interest",
   "name": "서울시 청년 임차보증금 이자지원",
   "contract_types": [
