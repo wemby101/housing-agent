@@ -88,6 +88,7 @@ Streamlit Community Cloud에서는 Secrets에 같은 이름으로 최상위(root
 | 도로명주소 검색 API | 행정안전부 도로명주소 개발자센터 (business.juso.go.kr) | 도로명주소 개발자센터 이용약관 | 주소 검색·PNU |
 | 공동주택가격 속성조회, 지오코더 2.0 | 국토교통부 브이월드 (vworld.kr) | 브이월드 오픈API 이용약관 | 공시가격·호 목록, 실거래 지도 좌표 |
 | 청년정책 API | 온통청년 (youthcenter.go.kr) | 온통청년 오픈API 이용약관 | 지역 청년 주거 정책 목록 |
+| 2026년 기준 중위소득 (`housing/policies.py`) | 보건복지부 고시 | 고시 수치 인용 | 지원 정책 중위소득 % 판정 |
 | 지원 정책표 `data/policies.json` | 서울·경기·인천·국토교통부 공고 | 공고 원문 요약, 항목마다 출처 링크·확인일 | 받을 수 있는 지원 판정 |
 | 기본 지도 (CARTO Light) | © OpenStreetMap contributors (ODbL), © CARTO | CARTO Basemaps 이용약관 | 실거래 지도 바탕 |
 
@@ -95,7 +96,7 @@ Streamlit Community Cloud에서는 Secrets에 같은 이름으로 최상위(root
 
 | 이름 | 제공 | 쓰는 곳 |
 |---|---|---|
-| Gemini API (`gemini-3.6-flash` 등, OpenAI 호환 엔드포인트) | Google — Gemini API 이용약관 | AI 상담(도구 호출), 협상 메시지 말투 다듬기 |
+| Gemini API (`gemini-3-flash-preview` 등, OpenAI 호환 엔드포인트) | Google — Gemini API 이용약관 | AI 상담(도구 호출), 협상 메시지 말투 다듬기 |
 | Groq API (`qwen/qwen3.8-27b`) | Groq — Groq 이용약관 | Gemini 한도가 찼을 때 예비 |
 
 **오픈소스** (`requirements.txt` 고정 버전)
