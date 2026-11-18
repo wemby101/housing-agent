@@ -113,7 +113,7 @@ def test_full_result_renders(monkeypatch):
     at = submit(deposit=22000, debt=5000)
     assert not at.exception
     text = " ".join(m.value for m in at.markdown) + " ".join(c.label for c in at.checkbox)
-    assert "보증보험 가입 한도를" in text and "추정 시세 × 70% − 선순위 채권 = 12,500만 원" in text
+    assert "보증보험 가입 한도를" in text and "추정 시세 × 70% − 선순위 채권 = 1억 2,500만 원" in text
     assert "참고용 진단입니다" in " ".join(c.value for c in at.caption)
 
 
@@ -199,7 +199,7 @@ def test_registry_pdf_fills_debt_and_flags(calls, monkeypatch):
     at.text_input[0].input("봉천동 1-70").run()
     at.selectbox[0].select(BONGCHEON).run()
     at.file_uploader[0].set_value(("등기부.pdf", b"%PDF-fake", "application/pdf")).run()
-    assert any("13,400만" in s.value for s in at.success)
+    assert any("1억 3,400만" in s.value for s in at.success)
     at.number_input[DEPOSIT].set_value(10000)
     at.button[0].click().run()
     args, kwargs = calls[-1]
@@ -347,7 +347,7 @@ def test_target_button_moves_slider_to_safe_deposit(monkeypatch):
     at = jeonse_result(monkeypatch)
     next(b for b in at.button if "목표" in b.label).click().run()
     slider = next(s for s in at.slider if "보증금" in s.label)
-    assert slider.value == 16600  # 목표 16,691만 원을 100만 원 단위로 내림 (넘지 않게)
+    assert slider.value == 16600  # 목표 1억 6,691만 원을 100만 원 단위로 내림 (넘지 않게)
     assert "70%" in whatif_text(at) or "69%" in whatif_text(at)
 
 
@@ -425,7 +425,7 @@ def summary(at):
 def test_result_starts_with_three_key_numbers_and_ratio_bar(monkeypatch):
     at = jeonse_result(monkeypatch)
     s = summary(at)
-    assert s["시세 대비 보증금"] == "92%" and s["협상 목표 보증금"] == "16,691만 원 이하"
+    assert s["시세 대비 보증금"] == "92%" and s["협상 목표 보증금"] == "1억 6,691만 원 이하"
     assert s["받을 수 있는 지원"] == "0개"  # 맞는 지원이 없을 때
     bar = next(m.value for m in at.markdown if 'class="risk-bar"' in m.value)
     assert "left: 92%" in bar and "시세 대비 92%" in bar  # 화면 읽기 프로그램용 설명도

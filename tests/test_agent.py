@@ -52,7 +52,7 @@ def test_diagnose_tool_finds_area_from_unit_and_reports_code_numbers(sources):
     assert out["headline"].startswith("보증금이 추정 시세의 92%")
     # 화면(risk.man)처럼 만 원 미만은 버린다: 반올림하면 AI 답이 화면과 1만 원 어긋나고 목표 보증금을 넘는다
     assert out["estimated_market_price_man"] == 23844 and out["nearby_jeonse_price_man"] == 18342
-    assert out["safe_deposit_target_man"] == 16691  # 238,449,000 × 70% = 166,914,300원 → 화면도 16,691만
+    assert out["safe_deposit_target_man"] == 16691  # 238,449,000 × 70% = 166,914,300원 → 화면도 1억 6,691만
     assert {s["title"] for s in out["signals"]} >= {"보증금이 주변 전세 시세보다 20% 높아요"}
     assert "policies" not in out and "나이" in out["policies_note"]  # 나이·소득을 모르면 정책을 지어내지 않는다
 

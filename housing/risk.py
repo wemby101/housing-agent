@@ -29,7 +29,10 @@ class RiskReport:
 
 
 def man(won: int) -> str:
-    return f"{won // 10_000:,}만"
+    """4억 5,747만 · 2억 · 8,400만 (만 원 아래는 버림). 뒤에 ' 원'은 부르는 쪽이 붙인다."""
+    eok, m = divmod(abs(won) // 10_000, 10_000)
+    text = " ".join(filter(None, [f"{eok:,}억" if eok else "", f"{m:,}만" if m else ""])) or "0"
+    return ("-" if won < 0 and text != "0" else "") + text
 
 
 def assess_risk(deposit_won: int, senior_debt_won: int | None, official: OfficialPrice | None,

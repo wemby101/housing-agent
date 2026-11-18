@@ -290,7 +290,8 @@ if d is not None:
               help="조건 충족과 추가 확인 필요를 합친 개수. 같이 받을 수 없는 지원이 있어 금액은 더하지 않아요. "
                    "나이·소득을 넣어야 찾을 수 있어요.")
     if d.policies_checked and d.policies:
-        k3.caption(benefit_line)
+        k3.caption(f"확정 {benefits.eligible}개 · 확인 필요 {benefits.check_needed}개"  # 좁은 칸이라 두 줄로 짧게, 이름은 아래 지원 목록에
+                   + (f"  \n가장 큰 혜택 최대 {man(top.policy['benefit_max_won'])} 원" if top else ""))
     if r.deposit_ratio is not None:
         pct = min(int(r.deposit_ratio * 100), 100)
         st.markdown(  # 0~70% 무난 · 70~80% 주의 · 80% 이상 위험, 내 위치에 표시

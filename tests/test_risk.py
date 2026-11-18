@@ -82,7 +82,7 @@ def test_senior_debt_counts_in_ratio_and_target():
 
 def test_over_limit_amount_uses_floored_limit():
     r = assess_risk(100_000_000, 200_000_000, OfficialPrice(100_000_000, 2026, "x"), None, residential)
-    assert "10,000만" in r.signals[0].title
+    assert "1억 원" in r.signals[0].title
 
 
 def test_ratio_title_never_rounds_into_next_band():
@@ -149,13 +149,13 @@ def jeonse(won, n=7):
 def test_deposit_well_above_nearby_jeonse_is_caution():
     r = assess_risk(260_000_000, 0, None, None, residential, jeonse=jeonse(200_000_000))
     s = next(s for s in r.signals if s.code == "JEONSE_ABOVE_NEARBY")
-    assert s.level == "caution" and "30%" in s.title and "20,000만" in s.detail and "7건" in s.detail
+    assert s.level == "caution" and "30%" in s.title and "2억 원" in s.detail and "7건" in s.detail
 
 
 def test_deposit_near_nearby_jeonse_is_info():
     r = assess_risk(210_000_000, 0, None, None, residential, jeonse=jeonse(200_000_000))
     s = next(s for s in r.signals if s.code == "JEONSE_NEARBY")
-    assert s.level == "info" and "20,000만" in s.title and "105%" in s.detail
+    assert s.level == "info" and "2억 원" in s.title and "105%" in s.detail
 
 
 def test_falling_price_warns_with_projected_ratio():
@@ -178,3 +178,13 @@ def test_missing_official_price_tells_where_to_find_and_enter_it():
     r = assess_risk(200_000_000, 0, None, None, None, None)
     s = next(s for s in r.signals if s.code == "NO_OFFICIAL_PRICE")
     assert "realtyprice.kr" in s.detail and "공시가격 직접 입력" in s.detail and s.source != "-"
+
+
+def test_man_reads_like_korean_money():
+    """화면 금액은 한 가지로: 1억 이상은 '4억 5,747만', 딱 떨어지면 '2억', 1억 미만은 '8,400만'."""
+    from housing.risk import man
+    assert man(457_470_000) == "4억 5,747만"
+    assert man(200_000_000) == "2억"
+    assert man(84_000_000) == "8,400만"
+    assert man(0) == "0"
+    assert man(-12_000_000) == "-1,200만"
