@@ -14,7 +14,7 @@ from housing.official_price import list_units
 from housing.pipeline import diagnose
 from housing.policies import Profile
 
-PROVIDERS = [  # (채팅 API 주소, .env 키 이름, 모델) — 앞 모델이 붐비거나(503) 한도가 차면(429) 다음 모델
+PROVIDERS = [  # (채팅 API 주소, .env 키 이름, 모델) — 붐비거나(503) 한도가 차면(429) 다음 모델, 30초 안에 응답이 없으면 다음 제공사
     # Gemini 무료 등급은 답이 가장 깔끔하지만 모델마다 하루 20회라 여럿을 돌린다 (2026-11-17: 3.7·3.8은 503)
     ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "GEMINI_API_KEY",
      ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3-flash-preview"]),
@@ -157,16 +157,22 @@ def run_tool(name: str, arguments: str) -> dict:
 
 
 def _chat(messages: list[dict], tools: list | None = TOOLS) -> dict:
+    resp, down = None, set()
     for url, key, model in _models():
+        if url in down:
+            continue
         gemini = "googleapis" in url
         try:
-            resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=90, json={
+            resp = requests.post(url, headers={"Authorization": f"Bearer {key}"}, timeout=(5, 30), json={
                 "model": model, "messages": [_plain(m, gemini) for m in messages], **({"tools": tools} if tools else {}),
                 "reasoning_effort": "low"})
-        except requests.RequestException as e:  # 메시지에 키가 든 헤더가 섞일 수 있어 그대로 쓰지 않는다
-            raise AgentError(f"AI 연결 실패 ({type(e).__name__})") from None
+        except requests.RequestException:  # 응답이 없으면 같은 제공사의 다른 모델도 기다리지 않고 다음 제공사로
+            down.add(url)
+            continue
         if resp.status_code not in (429, 503):
             break
+    if resp is None:  # 오류 메시지에는 키가 든 헤더가 섞일 수 있어 원문을 쓰지 않는다
+        raise AgentError("AI가 응답하지 않아요. 잠시 뒤에 다시 물어보거나 아래 폼으로 진단해 주세요.")
     if resp.status_code == 503:
         raise AgentError("AI 서버가 붐벼요. 잠시 뒤에 다시 물어봐 주세요.")
     if resp.status_code == 429:
@@ -179,6 +185,22 @@ def _chat(messages: list[dict], tools: list | None = TOOLS) -> dict:
         raise AgentError("AI 응답을 해석하지 못했어요") from None
 
 
+FOREIGN = re.compile(r"[぀-ヿ㐀-䶿一-鿿฀-๿]")  # 한자·가나·태국 문자
+NUMS = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def _hangul_only(messages: list[dict], text: str) -> str:
+    """한 번만 한글로 다시 받는다. 실패하거나 숫자가 바뀌면 원래 답을 쓴다."""
+    try:
+        out = (_chat([*messages, {"role": "user", "content": "방금 답에 한자나 외국 글자가 섞였어. 숫자와 내용은 그대로 두고 "
+                                  "한글로만 다시 써 줘. 다시 쓴 답만 보여 줘."}], tools=None).get("content") or "").strip()
+    except AgentError:
+        return text
+    if not out or FOREIGN.search(out) or set(NUMS.findall(out)) != set(NUMS.findall(text)):
+        return text
+    return out
+
+
 def reply(history: list[dict]) -> tuple[str, list[dict]]:
     """대화 기록(user/assistant/tool 메시지)을 받아 답과 늘어난 기록을 돌려준다."""
     messages = [{"role": "system", "content": SYSTEM}, *history]
@@ -187,7 +209,11 @@ def reply(history: list[dict]) -> tuple[str, list[dict]]:
         messages.append(msg)  # 받은 그대로: Gemini의 사고 서명(extra_content)을 다음 요청에 돌려줘야 한다
         calls = msg.get("tool_calls") or []
         if not calls:
-            return msg.get("content") or "", messages[1:]
+            text = msg.get("content") or ""
+            if FOREIGN.search(text):  # 지시문에 한국어만 쓰라고 해도 한자 등이 가끔 섞인다
+                text = _hangul_only(messages, text)
+                messages[-1] = {**msg, "content": text}
+            return text, messages[1:]
         for c in calls:
             result = run_tool(c["function"]["name"], c["function"].get("arguments", "{}"))
             messages.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": json.dumps(result, ensure_ascii=False)})
@@ -201,7 +227,6 @@ POLISH = ("세입자가 집주인이나 공인중개사에게 보낼 메시지�
 def polish(text: str) -> str:
     """AI는 말투만 다듬는다. 원문의 숫자가 하나라도 사라지거나 새 숫자가 생기면 쓰지 않는다."""
     out = (_chat([{"role": "system", "content": POLISH}, {"role": "user", "content": text}], tools=None).get("content") or "").strip()
-    nums = re.compile(r"\d[\d,]*(?:\.\d+)?")
-    if not out or set(nums.findall(out)) != set(nums.findall(text)):
+    if not out or set(NUMS.findall(out)) != set(NUMS.findall(text)):
         raise AgentError("AI가 숫자를 바꾸거나 빠뜨려서 원래 문장을 그대로 보여 드려요.")
     return out

@@ -235,3 +235,43 @@ def test_polish_rejects_added_numbers(monkeypatch):
         {"role": "assistant", "content": "보증금을 1억 6,600만 원으로 낮추고 관리비 10만 원도 부탁드려요."}))
     with pytest.raises(agent.AgentError, match="숫자"):
         agent.polish("보증금을 1억 6,600만 원으로 낮춰 주세요.")
+
+
+def test_slow_gemini_moves_to_groq_without_trying_other_gemini_models(monkeypatch):
+    """Gemini가 응답하지 않으면(시간 초과) 남은 Gemini 모델로 또 기다리지 않고 바로 Groq로 넘어간다."""
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+    calls = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        calls.append((url, timeout))
+        if "googleapis" in url:
+            raise requests.Timeout("read timed out")
+        return chat_response({"role": "assistant", "content": "안녕하세요"})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    text, _ = agent.reply([{"role": "user", "content": "안녕"}])
+    assert text == "안녕하세요"
+    assert [u for u, _ in calls if "googleapis" in u] == [calls[0][0]]  # Gemini는 한 번만
+    assert max(max(t) if isinstance(t, tuple) else t for _, t in calls) <= 30  # 화면이 90초씩 멈추지 않게
+
+
+def test_answer_with_hanja_is_rewritten_in_hangul(monkeypatch):
+    answers = iter(["보증금이 시세의 92%라 慎重하게 보세요.", "보증금이 시세의 92%라 신중하게 보세요."])
+    sent = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        sent.append(json)
+        return chat_response({"role": "assistant", "content": next(answers)})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    text, history = agent.reply([{"role": "user", "content": "괜찮아?"}])
+    assert text == "보증금이 시세의 92%라 신중하게 보세요."
+    assert "tools" not in sent[1]  # 다시 쓰기는 도구 없이
+    assert history[-1]["content"] == text  # 다음 대화에도 고친 답이 남게
+
+
+def test_rewrite_that_changes_numbers_keeps_original(monkeypatch):
+    answers = iter(["시세의 92%라 慎重하게 보세요.", "시세의 90%라 신중하게 보세요."])
+    monkeypatch.setattr(agent.requests, "post", lambda *a, **k: chat_response({"role": "assistant", "content": next(answers)}))
+    text, _ = agent.reply([{"role": "user", "content": "괜찮아?"}])
+    assert "92%" in text  # 숫자를 바꾼 다시 쓰기는 버린다
