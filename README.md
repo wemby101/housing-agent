@@ -71,6 +71,44 @@ Streamlit Community Cloud에서는 Secrets에 같은 이름으로 최상위(root
 공동주택가격(브이월드) · 청년정책 API(온통청년) ·
 지원 정책표 `data/policies.json` (서울·경기·인천·국토부 공고에서 확인, 항목마다 출처 링크와 확인일)
 
+## Credits / Licenses
+
+외부 자원은 아래만 쓰고, 키는 `.env`(배포 시 Streamlit Secrets)에만 둡니다. 확인일 2026-11-18.
+
+**공공데이터·API**
+
+| 이름 | 제공 | 이용 조건 | 쓰는 곳 |
+|---|---|---|---|
+| 연립다세대·아파트 매매 실거래가, 연립다세대·아파트 전월세 실거래가 | 국토교통부 (공공데이터포털 data.go.kr) | 이용허락범위 제한 없음 (공공데이터포털 표기) | 추정 시세·주변 전세 시세·시세 추이·근거 표 |
+| 건축물대장 표제부 (BldRgstHubService) | 국토교통부 (공공데이터포털) | 공공데이터포털 이용허락범위·이용약관 | 주용도·세대수·사용승인연도 |
+| 도로명주소 검색 API | 행정안전부 도로명주소 개발자센터 (business.juso.go.kr) | 도로명주소 개발자센터 이용약관 | 주소 검색·PNU |
+| 공동주택가격 속성조회, 지오코더 2.0 | 국토교통부 브이월드 (vworld.kr) | 브이월드 오픈API 이용약관 | 공시가격·호 목록, 실거래 지도 좌표 |
+| 청년정책 API | 온통청년 (youthcenter.go.kr) | 온통청년 오픈API 이용약관 | 지역 청년 주거 정책 목록 |
+| 지원 정책표 `data/policies.json` | 서울·경기·인천·국토교통부 공고 | 공고 원문 요약, 항목마다 출처 링크·확인일 | 받을 수 있는 지원 판정 |
+| 기본 지도 (CARTO Light) | © OpenStreetMap contributors (ODbL), © CARTO | CARTO Basemaps 이용약관 | 실거래 지도 바탕 |
+
+**AI 서비스** (사용자가 AI 상담을 쓸 때만 호출)
+
+| 이름 | 제공 | 쓰는 곳 |
+|---|---|---|
+| Gemini API (`gemini-3.6-flash` 등, OpenAI 호환 엔드포인트) | Google — Gemini API 이용약관 | AI 상담(도구 호출), 협상 메시지 말투 다듬기 |
+| Groq API (`qwen/qwen3.8-27b`) | Groq — Groq 이용약관 | Gemini 한도가 찼을 때 예비 |
+
+**오픈소스** (`requirements.txt` 고정 버전)
+
+| 이름 | 라이선스 | 용도 |
+|---|---|---|
+| Streamlit 1.67.0 | Apache-2.0 | 화면 |
+| pydeck 0.9.3 (Streamlit 의존성) | Apache-2.0 | 실거래 지도 |
+| Altair 6.3.0 | BSD-3-Clause | 시세 추이 그래프 |
+| requests 2.34.2 | Apache-2.0 | API 호출 |
+| python-dotenv 1.2.4 | BSD-3-Clause | 키 읽기 |
+| pypdf 7.1.0 | BSD-3-Clause | 등기부등본 PDF 읽기 |
+| pytest 9.2.0 | MIT | 테스트 |
+| Noto Sans KR, IBM Plex Mono (Google Fonts) | SIL Open Font License 1.1 | 글꼴 |
+
+**개발 도구:** Claude Code (Anthropic) — 코드·문서 작성 보조. 문제 정의·판정 기준·검증은 직접 하고, 계산은 테스트(`pytest`)로 확인했습니다.
+
 ## 발표용 예비 응답
 
 공공 API가 실패하면(403·503·시간 초과) `data/demo/`에 기록해 둔 응답으로 대신합니다 (데모 3곳: 봉천동 빌라·송도 아파트·분당 아파트).

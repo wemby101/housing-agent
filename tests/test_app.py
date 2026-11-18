@@ -232,8 +232,11 @@ def test_chat_answers_and_keeps_history(monkeypatch):
     assert asked[-1][-1] == {"role": "user", "content": "봉천동 1-70 201호 전세 2억2천 괜찮아?"}
     texts = [m.markdown[0].value for m in at.chat_message]
     assert texts == ["봉천동 1-70 201호 전세 2억2천 괜찮아?", "깡통전세 위험이 커요."]
+    assert "AI가 생성한 답변" in at.chat_message[1].caption[0].value and not at.chat_message[0].caption
+    assert any("개인정보" in c.value for c in at.caption)  # 외부 AI에 실제 개인정보를 보내지 않도록
     at.chat_input[0].set_value("월세면?").run()
     assert len(asked[-1]) == 3  # 이전 대화가 함께 간다
+    assert "AI가 생성한 답변" in at.chat_message[1].caption[0].value  # 지난 답에도 표시가 남는다
 
 
 def test_chat_error_is_shown_not_crashing(monkeypatch):
@@ -409,6 +412,7 @@ def test_ai_polish_shows_polished_message(monkeypatch):
     at = jeonse_result(monkeypatch)
     next(b for b in at.button if "다듬기" in b.label).click().run()
     assert code_blocks(at)[1].startswith("다듬은 메시지")
+    assert any("AI가 다듬은" in c.value for c in at.caption)
 
 
 def test_ai_polish_failure_keeps_original(monkeypatch):
