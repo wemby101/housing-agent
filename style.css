@@ -81,8 +81,9 @@ h2, h3, h4 { letter-spacing: -0.02em !important; }
 .risk-bar span { position: absolute; top: 18px; transform: translateX(-50%); font-size: .75rem; color: #6e5f57; }
 
 /* 지표 숫자: 자릿수 폭을 맞춘다 (고정폭 글꼴은 '만 원' 한글과 섞이면 어색해서 쓰지 않음) */
-[data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; font-size: 1.9rem; }
-[data-testid="stMetricValue"] > div { white-space: normal; overflow: visible; }  /* "16,691만 원 이하"가 … 로 잘리지 않게 */
+[data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; font-size: 1.6rem; }  /* 1.9rem이면 "1억 6,690만 원 이하"가 세 칸 중 한 칸에서 두 줄이 된다 */
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] * { white-space: normal !important; overflow: visible !important;
+  text-overflow: clip !important; word-break: keep-all; }  /* "1억 6,690만 원 이하"가 … 로 잘리거나 옆 칸을 덮지 않고 어절 단위로 줄바꿈 */
 .st-key-addr-plate { scroll-margin-top: 1.5rem; }  /* 진단 후 자동 스크롤이 판을 화면 끝에 붙이지 않게 */
 
 @media (max-width: 640px) {
