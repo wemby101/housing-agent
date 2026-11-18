@@ -1,10 +1,13 @@
-"""건축물대장 표제부: 주용도·세대수·사용승인연도."""
+"""건축물대장 표제부(주용도·세대수·사용승인연도)와 전유부(호별 전용면적)."""
 from dataclasses import dataclass
 
 from housing.address import Address
 from housing.datagokr import call_datagokr, items_of
 
 TITLE_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo"
+EXPOS_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo"
+REGISTER_PAGE = 1000
+MAX_PAGES = 20  # shortcut: 호마다 전유·공용 여러 줄이라 큰 단지는 수만 줄. 2만 줄 넘는 단지는 앞부분 호만, 필요하면 동별로 나눠 조회
 RESIDENTIAL = {"공동주택", "단독주택"}
 
 
@@ -42,3 +45,26 @@ def get_building(addr: Address) -> BuildingInfo | None:
         approval_year=int(apr[:4]) if apr[:4].isdigit() else None,
         is_residential=purpose in RESIDENTIAL,
     )
+
+
+def exclusive_areas(addr: Address) -> dict[tuple[str, str], float]:
+    """(동, 호) → 전용면적㎡. 브이월드(해외 서버에서 막힘) 대신 호 목록을 채울 때 쓴다."""
+    params = {"sigunguCd": addr.sigungu_cd, "bjdongCd": addr.bjdong_cd, "platGbCd": addr.plat_gb_cd,
+              "bun": addr.bun, "ji": addr.ji, "numOfRows": REGISTER_PAGE}
+    areas: dict[tuple[str, str], float] = {}
+    for page in range(1, MAX_PAGES + 1):
+        body = call_datagokr(EXPOS_URL, {**params, "pageNo": page})
+        rows = items_of(body)
+        for r in rows:
+            ho = str(r.get("hoNm") or "").strip().removesuffix("호").strip()
+            if r.get("exposPubuseGbCdNm") != "전유" or not ho:
+                continue
+            try:
+                area = float(r.get("area"))
+            except (TypeError, ValueError):
+                continue
+            key = (str(r.get("dongNm") or "").strip(), ho)
+            areas[key] = round(areas.get(key, 0) + area, 2)  # 복층 등 전유가 여러 줄이면 더한다
+        if not rows or page * REGISTER_PAGE >= int(body.get("totalCount") or 0):
+            break
+    return areas

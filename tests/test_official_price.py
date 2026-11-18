@@ -72,8 +72,10 @@ def test_list_units_latest_year_unique_sorted(monkeypatch):
 
 
 def test_list_units_empty_when_no_rows(monkeypatch):
+    from housing import building
     from housing.official_price import list_units
-    monkeypatch.setattr(official_price.requests, "get", fake_get("vworld_no_rows.json"))
+    monkeypatch.setattr(official_price.requests, "get", fake_get("vworld_no_rows.json", "vworld_no_rows.json"))
+    monkeypatch.setattr(building, "call_datagokr", _register([]))  # 건축물대장에도 호가 없으면 빈 목록
     assert list_units(BONGCHEON) == []
 
 
@@ -113,3 +115,60 @@ def test_list_units_falls_back_to_last_year_before_announcement(monkeypatch):
     monkeypatch.setattr(official_price.requests, "get", get)
     assert [u.ho for u in list_units(BONGCHEON, year=2026)] == ["101"]
     assert [c["stdrYear"] for c in get.calls] == ["2026", "2025"]
+
+
+def _register(rows):
+    """건축물대장 전유공용면적 가짜: 페이지마다 rows를 나눠 준다."""
+    calls = []
+
+    def call(url, params):
+        calls.append(dict(params))
+        n, page = params["numOfRows"], params["pageNo"]
+        return {"totalCount": str(len(rows)), "items": {"item": rows[(page - 1) * n: page * n]}}
+    call.calls = calls
+    return call
+
+
+def test_list_units_falls_back_to_building_register_when_vworld_fails(monkeypatch):
+    """배포 서버는 해외라 브이월드가 막힌다 → 건축물대장 전유부(data.go.kr)의 호별 전용면적으로 대신한다."""
+    from housing import building
+    from housing.errors import DataSourceError
+    from housing.official_price import Unit, list_units
+
+    def blocked(*a, **k):
+        raise DataSourceError("공시가격 조회 실패 (ConnectionError)")
+    monkeypatch.setattr(official_price, "_rows", blocked)
+    rows = [
+        {"exposPubuseGbCdNm": "전유", "dongNm": "", "hoNm": "201", "area": "41.01"},
+        {"exposPubuseGbCdNm": "공용", "dongNm": "", "hoNm": "201", "area": "8.5"},
+        {"exposPubuseGbCdNm": "전유", "dongNm": "", "hoNm": "101호", "area": "30"},
+        {"exposPubuseGbCdNm": "전유", "dongNm": "", "hoNm": "101호", "area": "11.01"},  # 복층 등 전유가 두 줄이면 더한다
+        {"exposPubuseGbCdNm": "전유", "dongNm": "", "hoNm": "1001", "area": "60"},
+    ]
+    fake = _register(rows)
+    monkeypatch.setattr(building, "call_datagokr", fake)
+    monkeypatch.setattr(building, "REGISTER_PAGE", 2)  # 여러 페이지도 다 읽는지
+
+    assert list_units(BONGCHEON) == [Unit("", "101", 41.01), Unit("", "201", 41.01), Unit("", "1001", 60.0)]
+    assert {c["bun"] for c in fake.calls} == {BONGCHEON.bun} and len(fake.calls) == 3
+
+
+def test_list_units_uses_register_when_vworld_has_no_rows(monkeypatch):
+    from housing import building
+    from housing.official_price import Unit, list_units
+    monkeypatch.setattr(official_price.requests, "get", fake_get("vworld_no_rows.json", "vworld_no_rows.json"))
+    monkeypatch.setattr(building, "call_datagokr", _register(
+        [{"exposPubuseGbCdNm": "전유", "dongNm": "102동", "hoNm": "502", "area": "59.9"},
+         {"exposPubuseGbCdNm": "전유", "dongNm": "101동", "hoNm": "502", "area": "84.9"}]))
+    assert list_units(BONGCHEON) == [Unit("101동", "502", 84.9), Unit("102동", "502", 59.9)]
+
+
+def test_register_units_drop_dong_when_single_building(monkeypatch):
+    """동이 하나뿐인 빌라는 건축물대장 동 칸에 건물 이름('봉천하이빌')이 온다 → 동을 비운다."""
+    from housing import building
+    from housing.official_price import Unit, list_units
+    monkeypatch.setattr(official_price, "_rows", lambda *a, **k: [])
+    monkeypatch.setattr(building, "call_datagokr", _register([
+        {"exposPubuseGbCdNm": "전유", "dongNm": "봉천하이빌", "hoNm": "201", "area": "41.01"},
+        {"exposPubuseGbCdNm": "전유", "dongNm": "봉천하이빌", "hoNm": "101", "area": "41.01"}]))
+    assert list_units(BONGCHEON) == [Unit("", "101", 41.01), Unit("", "201", 41.01)]

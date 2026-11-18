@@ -6,7 +6,7 @@ from datetime import date
 import requests
 
 from housing.address import Address
-from housing import demo
+from housing import building, demo
 from housing.config import get_key
 from housing.errors import DataSourceError
 
@@ -69,6 +69,19 @@ def get_official_price(addr: Address, dong: str, ho: str) -> OfficialPrice | Non
 
 
 def list_units(addr: Address, year: int | None = None) -> list[Unit]:
+    """동·호 목록. 브이월드 공동주택가격이 안 되면(해외 서버 차단·0건) 건축물대장 전유부로 대신한다."""
+    try:
+        units = _vworld_units(addr, year)
+    except DataSourceError:
+        units = []
+    if units:
+        return units
+    areas = building.exclusive_areas(addr)
+    single = len({d for d, _ in areas}) == 1  # 동이 하나면 동 칸에 건물 이름이 와서 "봉천하이빌 201호"처럼 보인다
+    return sorted((Unit("" if single else d, h, a) for (d, h), a in areas.items()), key=lambda u: (u.dong, len(u.ho), u.ho))
+
+
+def _vworld_units(addr: Address, year: int | None) -> list[Unit]:
     """올해(발표 전이면 작년) 동·호 목록 (공동주택가격이 있는 집만).
 
     연도를 안 주면 옛 연도부터 와서 큰 단지는 첫 페이지가 수년 전 동 이름(예: 1A동)뿐이다."""
