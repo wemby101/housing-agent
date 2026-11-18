@@ -7,7 +7,9 @@ from housing.datagokr import call_datagokr, items_of
 TITLE_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo"
 EXPOS_URL = "https://apis.data.go.kr/1613000/BldRgstHubService/getBrExposPubuseAreaInfo"
 REGISTER_PAGE = 1000
-MAX_PAGES = 20  # shortcut: 호마다 전유·공용 여러 줄이라 큰 단지는 수만 줄. 2만 줄 넘는 단지는 앞부분 호만, 필요하면 동별로 나눠 조회
+# shortcut: 호마다 전유·공용 여러 줄이라 큰 단지는 수천~수만 줄이고, 연달아 부르면 data.go.kr이 503을 준다.
+# 2천 줄 넘는 단지(대개 큰 아파트)는 목록 없이 직접 입력. 필요해지면 동별로 나눠 조회
+MAX_PAGES = 2
 RESIDENTIAL = {"공동주택", "단독주택"}
 
 
@@ -54,6 +56,8 @@ def exclusive_areas(addr: Address) -> dict[tuple[str, str], float]:
     areas: dict[tuple[str, str], float] = {}
     for page in range(1, MAX_PAGES + 1):
         body = call_datagokr(EXPOS_URL, {**params, "pageNo": page})
+        if int(body.get("totalCount") or 0) > MAX_PAGES * REGISTER_PAGE:
+            return {}  # 일부 호만 보여 주면 내 호가 없어 헷갈린다
         rows = items_of(body)
         for r in rows:
             ho = str(r.get("hoNm") or "").strip().removesuffix("호").strip()

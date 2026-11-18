@@ -147,10 +147,21 @@ def test_list_units_falls_back_to_building_register_when_vworld_fails(monkeypatc
     ]
     fake = _register(rows)
     monkeypatch.setattr(building, "call_datagokr", fake)
-    monkeypatch.setattr(building, "REGISTER_PAGE", 2)  # 여러 페이지도 다 읽는지
+    monkeypatch.setattr(building, "REGISTER_PAGE", 3)  # 두 페이지도 다 읽는지
 
     assert list_units(BONGCHEON) == [Unit("", "101", 41.01), Unit("", "201", 41.01), Unit("", "1001", 60.0)]
-    assert {c["bun"] for c in fake.calls} == {BONGCHEON.bun} and len(fake.calls) == 3
+    assert {c["bun"] for c in fake.calls} == {BONGCHEON.bun} and len(fake.calls) == 2
+
+
+def test_register_skips_big_complex_instead_of_flooding_api(monkeypatch):
+    """큰 단지는 페이지를 연달아 부르면 data.go.kr이 503을 준다(2026-11-18 이목로 24) → 2페이지 넘으면 목록 없이 직접 입력."""
+    from housing import building
+    rows = [{"exposPubuseGbCdNm": "전유", "dongNm": "", "hoNm": str(100 + i), "area": "59"} for i in range(7)]
+    fake = _register(rows)
+    monkeypatch.setattr(building, "call_datagokr", fake)
+    monkeypatch.setattr(building, "REGISTER_PAGE", 3)
+    assert building.exclusive_areas(BONGCHEON) == {}
+    assert len(fake.calls) == 1  # 첫 페이지의 totalCount만 보고 그만 부른다
 
 
 def test_list_units_uses_register_when_vworld_has_no_rows(monkeypatch):

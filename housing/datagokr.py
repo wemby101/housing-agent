@@ -1,5 +1,6 @@
 """공공데이터포털(data.go.kr) 공통 호출: 키 주입, 오류 판정, items 정규화."""
 import re
+import time
 import xml.etree.ElementTree as ET
 
 import requests
@@ -36,6 +37,7 @@ def call_datagokr(url: str, params: dict) -> dict:
     try:
         return _call(url, params)
     except _Transient:
+        time.sleep(1)  # 과부하(503)에 바로 다시 부르면 또 실패한다
         return _call(url, params)
 
 

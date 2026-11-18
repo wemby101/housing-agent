@@ -67,6 +67,33 @@ def test_diagnosis_with_source_errors_is_not_cached(calls):
     assert len(calls) == 2
 
 
+def test_official_price_failure_is_not_shown_as_error(calls, monkeypatch):
+    """배포 서버(해외)에서는 브이월드가 늘 막힌다 — 'ConnectionError' 경고 대신 위험 신호 칸의 직접 입력 안내만 보인다."""
+    def fake(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Diagnosis(args[0], None, None, None, RiskReport("h", [], None, None, None), [],
+                         {"official": "데이터를 가져오지 못했어요: 공시가격 조회 실패 (ConnectionError)",
+                          "market": "데이터를 가져오지 못했어요"},
+                         deposit_won=args[4], monthly_rent_won=args[5], policies_checked=False)
+    monkeypatch.setattr(housing.pipeline, "diagnose", fake)
+    at = submit()
+    warnings = [w.value for w in at.warning]
+    assert not any("공시가격" in w for w in warnings) and any("실거래가" in w for w in warnings)
+
+
+def test_official_price_failure_alone_keeps_cache(calls, monkeypatch):
+    """배포 서버에선 공시가격이 늘 실패한다 — 그것만으로 캐시를 지우면 매번 공공 API를 다시 불러 503이 난다."""
+    def fake(*args, **kwargs):
+        calls.append((args, kwargs))
+        return Diagnosis(args[0], None, None, None, RiskReport("h", [], None, None, None), [],
+                         {"official": "데이터를 가져오지 못했어요"}, deposit_won=args[4], monthly_rent_won=args[5],
+                         policies_checked=False)
+    monkeypatch.setattr(housing.pipeline, "diagnose", fake)
+    at = submit()
+    at.button[0].click().run()
+    assert len(calls) == 1
+
+
 def test_full_result_renders(monkeypatch):
     from datetime import date
     from housing.building import BuildingInfo

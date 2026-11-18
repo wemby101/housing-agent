@@ -171,3 +171,10 @@ def test_small_or_rising_change_is_not_a_warning():
     for trend in (-0.04, 0.08, None):
         r = assess_risk(150_000_000, 0, None, replace(market(200_000_000), trend=trend), residential)
         assert "PRICE_FALLING" not in codes(r)
+
+
+def test_missing_official_price_tells_where_to_find_and_enter_it():
+    from housing.risk import assess_risk
+    r = assess_risk(200_000_000, 0, None, None, None, None)
+    s = next(s for s in r.signals if s.code == "NO_OFFICIAL_PRICE")
+    assert "realtyprice.kr" in s.detail and "공시가격 직접 입력" in s.detail and s.source != "-"

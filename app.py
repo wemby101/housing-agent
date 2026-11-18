@@ -244,7 +244,7 @@ elif submitted and address is not None:
                         manual_official_won=int(official) * MAN or None, today=date.today(),
                         registry_flags=tuple(reading.flags) if reading
                         else tuple(filter(None, link.get("reg", "").split(","))) if from_link else ())
-    if d.errors:  # 일시적 실패를 1시간 동안 재사용하지 않도록
+    if set(d.errors) - {"official"}:  # 일시적 실패는 1시간 재사용하지 않는다. 공시가격은 배포 서버(해외)에서 늘 실패하니 제외 — 매번 다시 부르면 data.go.kr이 503
         cached_diagnose.clear()
     if not from_link:  # 새로 진단하면 링크를 갱신하고 체크리스트는 처음부터
         st.query_params.from_dict({k: v for k, v in {
@@ -298,7 +298,8 @@ if d is not None:
             st.write(s.detail)
             st.caption(f"출처: {s.source}")
     for key, msg in d.errors.items():
-        st.warning(f"{ERROR_LABELS.get(key, key)} — {msg}")
+        if key != "official":  # 배포 서버(해외)에선 브이월드가 늘 막힌다 — 위 신호 카드가 직접 입력을 안내한다
+            st.warning(f"{ERROR_LABELS.get(key, key)} — {msg}")
     if d.building:
         st.caption(f"건축물대장: {d.building.main_purpose} · {d.building.etc_purpose} · {d.building.households}세대 · "
                    f"{d.building.approval_year or '?'}년 사용승인")

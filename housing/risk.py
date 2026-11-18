@@ -82,8 +82,9 @@ def assess_risk(deposit_won: int, senior_debt_won: int | None, official: Officia
                     f"HUG 전세보증 기준 (공시가격 126%) · 공시가격: {official.source} {official.year}"))
         else:
             signals.append(Signal(
-                "NO_OFFICIAL_PRICE", "info", "공시가격을 몰라 보증보험 한도를 계산하지 못했어요",
-                "부동산공시가격알리미(realtyprice.kr)에서 확인해 입력하면 계산할 수 있어요.", "-"))
+                "NO_OFFICIAL_PRICE", "info", "공시가격을 넣으면 보증보험 한도까지 계산해요",
+                "공시가격 자동 조회가 안 됐어요. 부동산공시가격알리미(realtyprice.kr)에서 이 집 공시가격을 찾아 "
+                "'공시가격 직접 입력' 칸에 넣고 다시 진단하세요.", "부동산공시가격알리미"))
         if market is not None and official is not None and market.price_won > official.price_won * 2:
             # 공동주택 공시가격은 보통 시세의 60~70%라, 시세가 2배를 넘으면 특이 거래가 섞인 것으로 본다
             signals.append(Signal(

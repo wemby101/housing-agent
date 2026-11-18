@@ -140,7 +140,10 @@ def test_garbled_response_is_retried_once(monkeypatch):
     pages = ["<html><body>503 Service Unavailable</body></html>", RTMS_XML_OK]
     calls = []
     monkeypatch.setattr(datagokr.requests, "get", lambda url, params=None, timeout=None: calls.append(1) or FakeResponse(pages.pop(0)))
+    slept = []
+    monkeypatch.setattr(datagokr.time, "sleep", slept.append)
     assert int(call_datagokr("https://example", {})["totalCount"]) == 2 and len(calls) == 2
+    assert slept and slept[0] >= 1  # 과부하(503)에 바로 다시 부르면 또 실패한다 — 잠깐 쉬고 부른다
 
 
 def test_key_error_is_not_retried(monkeypatch):
