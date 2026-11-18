@@ -48,3 +48,21 @@ def test_reads_sample_pdf_end_to_end():
     data = (Path(__file__).parent / "fixtures" / "registry_sample.pdf").read_bytes()  # 테스트용 예시, 실제 등기부 아님
     r = read_registry_pdf(data)
     assert r.total_won == 134_000_000 and r.flags == ["압류"]
+
+
+def test_header_gives_address_and_unit_for_search():
+    """등기부를 먼저 올리면 첫 줄 '[집합건물] … 제2층 제201호'로 주소 검색·호 선택을 채운다."""
+    r = parse_registry_text(SAMPLE)
+    assert (r.address, r.dong, r.ho) == ("서울특별시 관악구 봉천동 1-70", "", "201")
+
+
+def test_header_with_building_dong():
+    text = SAMPLE.replace("서울특별시 관악구 봉천동 1-70 봉천하이빌 제2층 제201호",
+                          "경기도 수원시 장안구 정자동 111 백설마을 제112동 제25층 제2501호")
+    r = parse_registry_text(text)
+    assert (r.address, r.dong, r.ho) == ("경기도 수원시 장안구 정자동 111", "112", "2501")
+
+
+def test_header_missing_leaves_address_empty():
+    text = "\n".join(l for l in SAMPLE.splitlines() if not l.startswith("[집합건물]"))
+    assert parse_registry_text(text).address is None

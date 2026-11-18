@@ -16,6 +16,8 @@ ENTRY = re.compile(r"^\s*(\d+)(?:-\d+)?\s+(?=\S)", re.M)  # 줄 맨 앞 순위�
 LIEN_KINDS = {"근저당권설정": "근저당권", "전세권설정": "전세권", "주택임차권": "임차권", "임차권설정": "임차권"}
 AMOUNT = re.compile(r"(?:채권최고액|전세금|임차보증금)금([\d,]+)원")
 FLAG_WORDS = ("가압류", "압류", "가처분", "경매개시결정")
+# 각 쪽 머리줄: [집합건물] 서울특별시 관악구 봉천동 1-70 봉천하이빌 (제112동) 제2층 제201호 고유번호 …
+HEADER = re.compile(r"^\[(?:집합)?건물\]\s*(.*?\S[동리가]\s+(?:산\s*)?\d+(?:-\d+)?)(?=\s|$)(.*?)(?:고유번호|$)", re.M)
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,9 @@ class Lien:
 class RegistryReading:
     liens: list[Lien] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)  # 압류·가압류·가처분·경매개시결정·신탁
+    address: str | None = None  # 머리줄의 지번 주소 (주소 검색어로 쓴다)
+    dong: str = ""
+    ho: str = ""
 
     @property
     def total_won(self) -> int:
@@ -82,7 +87,12 @@ def parse_registry_text(text: str) -> RegistryReading:
         elif (m := re.match(r"(\d+)번.*변경$", purpose)) and amount and int(m.group(1)) in amounts:
             amounts[int(m.group(1))] = (amounts[int(m.group(1))][0], int(amount.group(1).replace(",", "")))
     liens = [Lien(r, kind, won) for r, (kind, won) in sorted(amounts.items()) if r not in gone]
-    return RegistryReading(liens, flags)
+    head = HEADER.search(text)
+    rest = head.group(2) if head else ""
+    dong = re.search(r"제(\S+?)동\s+제", rest)
+    ho = re.search(r"제(\S+?)호", rest)
+    return RegistryReading(liens, flags, head.group(1) if head else None,
+                           dong.group(1) if dong else "", ho.group(1) if ho else "")
 
 
 def read_registry_pdf(data: bytes) -> RegistryReading:

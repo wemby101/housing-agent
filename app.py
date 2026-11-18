@@ -130,8 +130,24 @@ def link_num(name, default=0):
     return type(default)(v) if math.isfinite(v) and v >= 0 else default  # 고친 링크(inf·음수)로 입력칸이 깨지지 않게
 
 
-# 1. 주소
-keyword = st.text_input("집 주소 검색", value=link.get("q", ""), placeholder="예: 봉천동 1-70, 청림3다길 12")
+# 1. 주소 — 등기부를 먼저 올리면 첫 줄의 주소·호로 검색칸과 호 선택을 채운다
+reading = None
+pdf = st.file_uploader("등기부등본 PDF (선택) — 올리면 주소·호와 근저당을 자동으로 채워요", type="pdf",
+                       help="인터넷등기소(iros.go.kr)에서 열람·발급한 PDF. 사진·스캔본은 읽지 못해요. 파일은 저장하지 않아요.")
+if pdf is not None:
+    try:
+        reading = read_registry_pdf(pdf.getvalue())
+    except DataSourceError as e:
+        st.warning(str(e))
+    else:
+        lines = [f"- {l.rank}번 {l.kind} {man(l.amount_won)} 원" for l in reading.liens] or ["- 남아 있는 근저당·전세권이 없어요"]
+        st.success("등기부에서 읽은 선순위 채권 (말소된 건 제외)\n" + "\n".join(lines)
+                   + f"\n\n합계 **{man(reading.total_won)} 원**을 아래 칸에 채웠어요. 실제 등기부와 다르면 고쳐 주세요.")
+        if reading.flags:
+            st.error(f"등기부에 {'·'.join(reading.flags)} 기록이 있어요. 계약 전에 반드시 확인하세요.")
+
+reg_addr = reading.address if reading else None
+keyword = st.text_input("집 주소 검색", value=reg_addr or link.get("q", ""), placeholder="예: 봉천동 1-70, 청림3다길 12")
 address = None
 if keyword.strip():
     try:
@@ -145,7 +161,7 @@ if keyword.strip():
     if results:
         address = st.selectbox(
             f"검색 결과 {len(results)}건 — 계약할 집을 골라 주세요", results,
-            index=next((i for i, a in enumerate(results) if a.pnu == link.get("pnu")), None),
+            index=next((i for i, a in enumerate(results) if a.pnu == link.get("pnu")), 0 if reg_addr and len(results) == 1 else None),
             placeholder="주소 선택",
             format_func=lambda a: f"{a.road_addr}" + (f" · {a.building_name}" if a.building_name else ""),
         )
@@ -156,26 +172,10 @@ unit = None
 if address is not None and (units := cached_units(address)):
     unit = st.selectbox(
         "호 선택", units,
-        index=next((i for i, u in enumerate(units) if (u.dong, u.ho) == (link.get("dong", ""), link.get("ho"))), None),
+        index=next((i for i, u in enumerate(units) if (u.dong, u.ho) in {(link.get("dong", ""), link.get("ho")), (reading.dong, reading.ho) if reading else None}), None),
         placeholder="호를 골라 주세요 (목록에 없으면 비워 두고 아래에 직접 입력)",
         format_func=lambda u: " ".join(filter(None, [u.dong + "동" * (u.dong.isascii() and u.dong.isalnum()), f"{u.ho}호"])) + (f" · 전용 {u.area_m2:g}㎡" if u.area_m2 else ""),
     )
-
-reading = None
-if address is not None:
-    pdf = st.file_uploader("등기부등본 PDF (선택) — 올리면 근저당을 자동으로 채워요", type="pdf",
-                           help="인터넷등기소(iros.go.kr)에서 열람·발급한 PDF. 사진·스캔본은 읽지 못해요. 파일은 저장하지 않아요.")
-    if pdf is not None:
-        try:
-            reading = read_registry_pdf(pdf.getvalue())
-        except DataSourceError as e:
-            st.warning(str(e))
-        else:
-            lines = [f"- {l.rank}번 {l.kind} {man(l.amount_won)} 원" for l in reading.liens] or ["- 남아 있는 근저당·전세권이 없어요"]
-            st.success("등기부에서 읽은 선순위 채권 (말소된 건 제외)\n" + "\n".join(lines)
-                       + f"\n\n합계 **{man(reading.total_won)} 원**을 아래 칸에 채웠어요. 실제 등기부와 다르면 고쳐 주세요.")
-            if reading.flags:
-                st.error(f"등기부에 {'·'.join(reading.flags)} 기록이 있어요. 계약 전에 반드시 확인하세요.")
 
 # 다른 집을 고르면 이전 진단 결과를 숨긴다
 if (d := st.session_state.get("diagnosis")) is not None and address != d.address:
@@ -186,8 +186,8 @@ if (d := st.session_state.get("diagnosis")) is not None and address != d.address
 with st.container(key="contract"):
     if unit is None:
         c1, c2, c3 = st.columns(3)
-        dong = c1.text_input("동 (없으면 비움)", value=link.get("dong", ""))
-        ho = c2.text_input("호", value=link.get("ho", ""), placeholder="201")
+        dong = c1.text_input("동 (없으면 비움)", value=reading.dong if reading and reading.ho else link.get("dong", ""))
+        ho = c2.text_input("호", value=reading.ho if reading and reading.ho else link.get("ho", ""), placeholder="201")
         area = c3.number_input("전용면적 (㎡)", min_value=1.0, value=max(link_num("area", 40.0), 1.0), step=1.0)
     else:  # 공시자료의 면적을 기본값으로, 실제와 다르면 고칠 수 있게
         dong, ho = unit.dong, unit.ho

@@ -206,6 +206,26 @@ def test_registry_pdf_fills_debt_and_flags(calls, monkeypatch):
     assert args[6] == 134_000_000 and kwargs["registry_flags"] == ("압류",)
 
 
+def test_registry_pdf_first_fills_address_and_unit(calls, monkeypatch):
+    """주소 검색 전에 등기부를 올리면 머리줄 주소로 검색하고, 결과가 하나면 고르고, 호까지 맞춘다."""
+    import housing.registry
+    from housing.official_price import Unit
+    from housing.registry import RegistryReading
+    searched = []
+    monkeypatch.setattr(housing.address, "search_address", lambda kw, limit=10: searched.append(kw) or [BONGCHEON])
+    monkeypatch.setattr(housing.official_price, "list_units", lambda addr: [Unit("", "101", 30.0), Unit("", "201", 41.01)])
+    monkeypatch.setattr(housing.registry, "read_registry_pdf",
+                        lambda data: RegistryReading([], [], "서울특별시 관악구 봉천동 1-70", "", "201"))
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.run()
+    at.file_uploader[0].set_value(("등기부.pdf", b"%PDF-fake", "application/pdf")).run()
+    assert searched == ["서울특별시 관악구 봉천동 1-70"]
+    at.number_input[DEPOSIT].set_value(10000)
+    at.button[0].click().run()
+    args, _ = calls[-1]
+    assert args[0] == BONGCHEON and (args[1], args[2], args[3]) == ("", "201", 41.01)
+
+
 def test_link_flags_apply_only_when_opening_link(calls):
     at = AppTest.from_file(APP, default_timeout=10)
     at.query_params.update({**LINK, "reg": "압류"})
