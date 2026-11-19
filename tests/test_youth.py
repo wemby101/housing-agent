@@ -48,3 +48,15 @@ def test_policies_whose_period_already_ended_excluded(monkeypatch):
     ])
     names = [p.name for p in get_youth_policies("28185", age=27, today=date(2026, 11, 17))]
     assert names == ["진행 중 지원", "상시 지원"]
+
+
+def test_period_shown_as_readable_dates(monkeypatch):
+    """API 원문 "20260101 ~ 20261231"을 사람이 읽기 쉬운 "2026.01.01 ~ 2026.12.31"로 보여 준다."""
+    from datetime import date
+    row = {"zipCd": "28185", "rgtrInstCdNm": "인천광역시"}
+    monkeypatch.setattr(youth, "_fetch", lambda zip_cd: [
+        {**row, "plcyNm": "기간 있는 지원", "aplyYmd": "20260101 ~ 20261231"},
+        {**row, "plcyNm": "상시 지원", "aplyYmd": ""},
+    ])
+    got = get_youth_policies("28185", age=27, today=date(2026, 11, 17))
+    assert [p.period for p in got] == ["2026.01.01 ~ 2026.12.31", "상시"]

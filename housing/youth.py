@@ -1,4 +1,5 @@
 """온통청년 청년정책 API: 이 지역 지자체의 다른 청년 주거 정책 (정책표에 없는 것만, 자격은 판정하지 않음)."""
+import re
 from dataclasses import dataclass
 from datetime import date
 
@@ -61,6 +62,6 @@ def get_youth_policies(zip_cd: str, age: int, today: date | None = None) -> list
             continue
         seen.add(name)
         out.append(YouthPolicy(name, (p.get("rgtrInstCdNm") or p.get("sprvsnInstCdNm") or "").strip(),
-                               (p.get("plcySprtCn") or "").strip(), (p.get("aplyYmd") or "").strip() or "상시",
+                               (p.get("plcySprtCn") or "").strip(), re.sub(r"\b(\d{4})(\d{2})(\d{2})\b", r"\1.\2.\3", (p.get("aplyYmd") or "").strip()) or "상시",
                                (p.get("aplyUrlAddr") or p.get("refUrlAddr1") or "https://www.youthcenter.go.kr").strip()))
     return out
