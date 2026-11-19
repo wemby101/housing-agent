@@ -78,7 +78,7 @@ Streamlit Community Cloud에서는 Secrets에 같은 이름으로 최상위(root
 
 ## Credits / Licenses
 
-외부 자원은 아래만 쓰고, 키는 `.env`(배포 시 Streamlit Secrets)에만 둡니다. 확인일 2026-11-18.
+외부 자원은 아래만 쓰고, 키는 `.env`(배포 시 Streamlit Secrets)에만 둡니다. 확인일 2026-11-19.
 
 **공공데이터·API**
 
