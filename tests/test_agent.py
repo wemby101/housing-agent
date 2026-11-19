@@ -352,3 +352,24 @@ def test_groq_long_rate_wait_is_not_waited(monkeypatch):
     monkeypatch.setattr(agent.time, "sleep", lambda s: pytest.fail("40초나 기다림"))
     with pytest.raises(agent.AgentError, match="한도"):
         agent.reply([{"role": "user", "content": "안녕"}])
+
+
+def test_groq_polish_turns_off_reasoning(monkeypatch):
+    """2026-11-19 측정: qwen이 생각에 600토큰을 다 써서 다듬은 글이 빈 채로 오곤 했다(finish_reason=length).
+    도구 없이 글만 다듬을 때는 생각을 끄면 100토큰 안팎으로 바로 답한다."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "secret-groq-key")
+    sent = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        sent.append(json)
+        return chat_response({"role": "assistant", "content": "보증금 92%"})
+
+    monkeypatch.setattr(agent.requests, "post", post)
+    agent.polish("보증금 92%")
+    assert sent[0]["reasoning_effort"] == "none"
+
+
+def test_system_prompt_forbids_made_up_support_names():
+    """2026-11-19: Groq이 도구 결과에 없는 '청년월세 지원'을 전세 세입자에게 안내했다."""
+    assert "도구 결과에 있는 지원만" in agent.SYSTEM

@@ -34,6 +34,7 @@ SYSTEM = """너는 청년의 전월세 계약 전 위험을 진단해 주는 상
 - 보증금을 권할 때는 safe_deposit_target_man 이하로만 권해. 그보다 큰 금액이나 범위를 제시하지 마.
 - 진단에는 주소(도로명이나 지번), 호수, 보증금, 월세가 필요해. 빠진 게 있으면 짧게 물어봐. 근저당을 모르면 모른다고 넘겨.
 - 지원 정책은 나이와 세전 연소득을 알아야 찾을 수 있어. 진단을 먼저 하고, 모르면 나중에 물어봐.
+- 지원 정책은 도구 결과에 있는 지원만 이름을 말해. 결과에 없는 지원을 지어내거나 짐작해서 권하지 마.
 - 지원 금액은 서로 더하지 마. 서울·국토부 청년월세처럼 같이 받을 수 없는 지원이 있어. 가장 큰 혜택과 확인할 조건을 알려 줘.
 - 주소 검색 결과가 여러 개고 어느 집인지 애매하면 사용자에게 골라 달라고 해.
 - 도구가 error를 주면 무엇이 필요한지 사용자에게 쉽게 말해.
@@ -171,7 +172,9 @@ def _chat(messages: list[dict], tools: list | None = TOOLS, failed: set | None =
             continue
         gemini = "googleapis" in url
         body = {"model": model, "messages": [_plain(m, gemini) for m in messages], **({"tools": tools} if tools else {}),
-                "reasoning_effort": "low",
+                # Groq qwen은 생각에 출력 상한(600)을 다 써서 다듬은 글이 비곤 했다 → 글만 다듬을 때는 생각을 끈다.
+                # 상담(도구 호출)은 생각을 끄면 답이 어색해져서(2026-11-19 비교) 그대로 둔다
+                "reasoning_effort": "none" if not gemini and not tools else "low",
                 # Groq 무료 등급은 분당 출력 1,000토큰이고 요청한 상한을 미리 뺀다 → 연달아 불러도 들어가게 600
                 **({} if gemini else {"max_completion_tokens": 600})}
         try:
