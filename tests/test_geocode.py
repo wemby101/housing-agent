@@ -88,7 +88,7 @@ def juso(monkeypatch, tmp_path):
 
     def get(url, params, timeout):
         seen.append(url)
-        if url == geocode.JUSO_SEARCH_URL:
+        if url.endswith(geocode.JUSO_SEARCH_PATH):
             rows = [] if params["keyword"].endswith("999") else [
                 {"admCd": "1162010100", "rnMgtSn": "116204160733", "udrtYn": "0", "buldMnnm": "12", "buldSlno": "0"}]
             return FakeResponse(json.dumps({"results": {**ok, "juso": rows}}))
@@ -120,7 +120,7 @@ def test_juso_rate_limit_is_retried(juso, monkeypatch):
     busy = [True]
 
     def rate_limited(url, params, timeout):
-        if busy and url == geocode.JUSO_COORD_URL:
+        if busy and url.endswith(geocode.JUSO_COORD_PATH):
             busy.pop()
             return FakeResponse(json.dumps({"results": {"common": {"errorCode": "E0007", "errorMessage": "다량 요청"}, "juso": None}}))
         return ok(url, params, timeout)

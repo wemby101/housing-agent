@@ -13,14 +13,14 @@ from statistics import median
 import requests
 
 from housing import demo
-from housing.address import Address
+from housing.address import Address, juso_get
 from housing.config import get_key
 from housing.errors import DataSourceError
 from housing.market import CACHE_DIR
 
 URL = "https://api.vworld.kr/req/address"
-JUSO_SEARCH_URL = "https://business.juso.go.kr/addrlink/addrLinkApi.do"
-JUSO_COORD_URL = "https://business.juso.go.kr/addrlink/addrCoordApi.do"
+JUSO_SEARCH_PATH = "/addrlink/addrLinkApi.do"
+JUSO_COORD_PATH = "/addrlink/addrCoordApi.do"
 CACHE = CACHE_DIR / "geocode.json"  # 지번 좌표는 바뀌지 않아 한 번 찾으면 계속 쓴다
 SEED = Path(__file__).resolve().parent.parent / "data" / "geocode_seed.json"  # 데모 집 거래 지번 — 첫 지도도 바로 뜨게 같이 배포
 _lock = threading.Lock()
@@ -75,15 +75,15 @@ _last_call: dict[str, float] = {}
 _rate_lock = threading.Lock()
 
 
-def _juso_rows(url: str, params: dict) -> list[dict]:
+def _juso_rows(path: str, params: dict) -> list[dict]:
     for wait in (5.0, None):  # 그래도 E0007이면 풀릴 때까지 쉬었다 한 번 더
         with _rate_lock:  # 지도 점을 여러 스레드가 찾아도 API마다 간격을 지킨다
-            gap = _last_call.get(url, 0) + JUSO_GAP - time.monotonic()
+            gap = _last_call.get(path, 0) + JUSO_GAP - time.monotonic()
             if gap > 0:
                 time.sleep(gap)
-            _last_call[url] = time.monotonic()
+            _last_call[path] = time.monotonic()
         try:
-            body = demo.get(url, {**params, "resultType": "json"}, timeout=5).json()["results"]
+            body = juso_get(path, {**params, "resultType": "json"}, timeout=5).json()["results"]
         except (requests.RequestException, ValueError, KeyError) as e:  # 메시지에 confmKey가 든 URL이 있을 수 있다
             raise DataSourceError(f"좌표 조회 실패 ({type(e).__name__})") from None
         code = str(body.get("common", {}).get("errorCode"))
@@ -97,11 +97,11 @@ def _juso_rows(url: str, params: dict) -> list[dict]:
 
 def _juso_point(address: str) -> tuple[float, float] | None:
     """지번으로 도로명주소를 찾고(건물이 없는 땅이면 None) 그 건물의 좌표를 받는다."""
-    rows = _juso_rows(JUSO_SEARCH_URL, {"confmKey": get_key("JUSO_API_KEY"), "keyword": address, "currentPage": 1, "countPerPage": 1})
+    rows = _juso_rows(JUSO_SEARCH_PATH, {"confmKey": get_key("JUSO_API_KEY"), "keyword": address, "currentPage": 1, "countPerPage": 1})
     if not rows:
         return None
     r = rows[0]
-    coords = _juso_rows(JUSO_COORD_URL, {"confmKey": get_key("JUSO_COORD_API_KEY"),
+    coords = _juso_rows(JUSO_COORD_PATH, {"confmKey": get_key("JUSO_COORD_API_KEY"),
                                          **{k: r[k] for k in ("admCd", "rnMgtSn", "udrtYn", "buldMnnm", "buldSlno")}})
     return utmk_to_wgs84(float(coords[0]["entX"]), float(coords[0]["entY"])) if coords else None
 

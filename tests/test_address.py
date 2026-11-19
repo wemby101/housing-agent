@@ -60,3 +60,20 @@ def test_network_error_message_hides_key(monkeypatch):
 def test_eup_myeon_name_includes_ri():  # 실거래가 umdNm은 "봉담읍 동화리"처럼 리까지 온다
     a = parse_juso_row({**CITYHALL_ROW, "emdNm": "봉담읍", "liNm": "동화리"})
     assert a.emd_name == "봉담읍 동화리"
+
+
+def test_search_falls_back_to_second_juso_server(monkeypatch):
+    """2026-11-19 배포 서버에서 business.juso.go.kr만 연결이 안 됐다 — 같은 API인 www.juso.go.kr로 바꾸고 다음부터 그쪽 먼저."""
+    from tests.helpers import FakeResponse, fixture_text
+    monkeypatch.setattr(address, "JUSO_HOSTS", ["https://business.juso.go.kr", "https://www.juso.go.kr"])
+    hosts = []
+
+    def get(url, params=None, timeout=None):
+        hosts.append(url.split("/")[2])
+        if url.startswith("https://business."):
+            raise address.requests.ConnectTimeout("no route")
+        return FakeResponse(fixture_text("juso_seoul_cityhall.json"))
+    monkeypatch.setattr(address.requests, "get", get)
+    assert address.search_address("세종대로 110")
+    assert address.search_address("세종대로 110")
+    assert hosts == ["business.juso.go.kr", "www.juso.go.kr", "www.juso.go.kr"]

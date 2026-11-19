@@ -7,7 +7,20 @@ from housing import demo
 from housing.config import get_key
 from housing.errors import DataSourceError
 
-JUSO_URL = "https://business.juso.go.kr/addrlink/addrLinkApi.do"
+# 같은 API·같은 키, 서버(IP)만 다르다. 2026-11-19 배포 서버(해외)에서 business에만 연결이 안 됐다
+JUSO_HOSTS = ["https://business.juso.go.kr", "https://www.juso.go.kr"]
+
+
+def juso_get(path: str, params: dict, timeout: float = 10):
+    """도로명주소 API를 부른다. 연결이 안 되는 서버는 뒤로 보내 다음부터 다른 서버를 먼저 쓴다."""
+    *first, last = list(JUSO_HOSTS)
+    for host in first:
+        try:
+            return demo.get(host + path, params, timeout=(3, timeout))  # 막힌 서버는 연결 3초 만에 넘긴다
+        except (requests.ConnectionError, requests.Timeout):
+            JUSO_HOSTS.remove(host)
+            JUSO_HOSTS.append(host)
+    return demo.get(last + path, params, timeout=(3, timeout))
 
 
 @dataclass(frozen=True)
@@ -52,7 +65,7 @@ def search_address(keyword: str, limit: int = 10) -> list[Address]:
         "resultType": "json",
     }
     try:
-        resp = demo.get(JUSO_URL, params, timeout=10)
+        resp = juso_get("/addrlink/addrLinkApi.do", params)
         results = resp.json()["results"]
     except (requests.RequestException, ValueError, KeyError) as e:  # 메시지에 confmKey가 든 URL이 있을 수 있다
         raise DataSourceError(f"주소 검색 실패 ({type(e).__name__})") from None
