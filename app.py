@@ -354,7 +354,7 @@ if d is not None:
     # 시세 근거 거래의 위치 (펼침 칸 안에 두면 토글할 때 칸이 접혀서 밖에 둔다)
     if d.market is not None and d.market.comps and st.toggle(
             "📍 거래한 집들을 지도로 보기", key=f"map-{d.address.pnu}",
-            help="추정 매매 시세에 쓴 거래의 지번을 지도에 찍어요. 처음 열 때 좌표를 찾느라 몇 초 걸려요."):
+            help="추정 매매 시세에 쓴 거래의 지번을 지도에 찍어요. 처음 여는 동네는 좌표를 찾느라 20초쯤 걸리고, 한 번 찾은 곳은 바로 나와요."):
         try:
             with st.spinner("거래 위치를 찾고 있어요…"):
                 pts = cached_points(d.address, d.market.comps)
